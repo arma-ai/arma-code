@@ -6,22 +6,31 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "worker": "tsx lib/queue/workers/materialWorker.ts",
+    "worker:podcast": "tsx lib/queue/workers/podcastWorker.ts",
+    "worker:presentation": "tsx lib/queue/workers/presentationWorker.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run worker\""
   },
   "dependencies": {
+    "@react-three/fiber": "^8.15.10",
+    "@react-three/postprocessing": "^2.15.13",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.4",
     "iconv-lite": "^0.6.3",
     "mammoth": "^1.11.0",
+    "motion": "^12.23.24",
     "next": "14.2.5",
     "openai": "^4.52.7",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^4.10.38",
+    "postprocessing": "^6.34.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-pdf": "^10.2.0",
     "sharp": "^0.34.5",
+    "three": "^0.152.2",
     "youtube-transcript": "^1.2.1"
   },
   "devDependencies": {

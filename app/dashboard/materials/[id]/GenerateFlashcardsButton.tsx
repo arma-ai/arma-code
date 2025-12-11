@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateFlashcards } from '@/app/actions/generateFlashcards';
+import { materialsApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface GenerateFlashcardsButtonProps {
@@ -18,7 +18,7 @@ export default function GenerateFlashcardsButton({ materialId }: GenerateFlashca
     setError(null);
 
     try {
-      await generateFlashcards(materialId);
+      await materialsApi.regenerateFlashcards(materialId);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate flashcards');

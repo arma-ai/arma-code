@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Material } from '@/app/actions/materials';
+import type { Material } from '@/lib/api';
 import UploadModal from '../UploadModal';
 import DeleteMaterialButton from '../DeleteMaterialButton';
 

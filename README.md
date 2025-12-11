@@ -78,6 +78,34 @@ npm run dev
 ### Авторизация
 - Google OAuth вход
 - Автоматическое создание профиля при первом входе
+
+## React Bits: анимированные UI-компоненты
+
+- Установка: `npm install react-bits motion` (React Bits распространяется как набор готовых компонентов; `motion` нужен для анимаций в TiltedCard/AnimatedList). Компоненты уже добавлены в репозиторий, поэтому установка пакета `react-bits` опциональна; команда приведена для полноты.
+- Tailwind: добавлены keyframes/animation для звездных границ (`animate-star-movement-*` в `tailwind.config.ts`). Убедитесь, что `npm run dev` перезапущен после изменения конфига.
+- Документация: https://reactbits.dev/ — там же можно подтянуть новые компоненты или обновить локальные версии.
+- Новые компоненты (расположены в `app/components/reactbits`):
+  - `HeroButton.tsx` — обертка над React Bits `StarBorder` с mount/hover анимацией, кастомизацией цвета/скорости/толщины рамки.
+  - `TiltCard.tsx` — 3D карточка на базе `TiltedCard` (поддержка подписи, бейджа, регулировка амплитуды и масштабирования).
+  - `ScrollList.tsx` — scroll-reveal список на основе `AnimatedList` (регулируемые delay/duration, градиентные маски, клавиатурная навигация).
+  - Исходники React Bits (TS + Tailwind) в `app/components/reactbits/library` для прозрачности и возможного обновления.
+- Использование: импортируйте нужный компонент, пример:
+  ```tsx
+  import HeroButton from '@/components/reactbits/HeroButton';
+  import TiltCard from '@/components/reactbits/TiltCard';
+  import ScrollList from '@/components/reactbits/ScrollList';
+
+  export default function HomePage() {
+    return (
+      <main className="space-y-10">
+        <HeroButton label="Начать" color="#7C3AED" speed="5s" />
+        <TiltCard imageSrc="/images/study.jpg" title="Adaptive Learning" rotateAmplitude={10} />
+        <ScrollList title="Недавние материалы" items={['Physics', 'Chemistry', 'Biology']} itemDelay={0.08} />
+      </main>
+    );
+  }
+  ```
+- Оптимизация и best practices: держите компоненты в лени-вставляемых секциях или используйте динамический импорт для тяжелых анимаций, включайте tree-shaking (Next.js делает это автоматически), оборачивайте списки в `React.memo`/`useMemo` если пропсы стабильны, уважайте `prefers-reduced-motion` (обработано в HeroButton/TiltCard), по возможности используйте `translate/opacity` (GPU-friendly) и избегайте лишних reflow. Если GSAP не нужен — не подключайте; выбранный `motion` легковеснее.
 - Middleware защита маршрутов
 
 ### Управление материалами
@@ -109,4 +137,3 @@ npm run dev
 - Если информации нет - ассистент сообщает "в документе нет ответа"
 - История сообщений сохраняется в базе данных
 - Использование gpt-4o для генерации ответов
-

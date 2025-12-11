@@ -35,3 +35,63 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ===== Python Backend =====
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv/
+backend/.venv/
+backend/env/
+backend/ENV/
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+
+# Alembic
+backend/alembic.ini.backup
+
+# ===== Docker =====
+
+# Docker volumes data
+postgres_data/
+redis_data/
+pgadmin_data/
+
+# Docker override files
+docker-compose.override.yml
+
+# ===== Database Backups =====
+
+backups/
+*.sql
+*.dump
+
+# ===== IDE =====
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# ===== Logs =====
+
+logs/
+*.log
+
+# ===== Temporary Files =====
+
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+

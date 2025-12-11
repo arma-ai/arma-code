@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { getBestQuizPercentage } from './getQuizStatistics';
 
 export interface Achievement {
   id: string;
@@ -84,9 +85,8 @@ async function getUserProgressStats(supabase: any, userId: string, materialId?: 
     tutorMessages = messages?.length || 0;
   }
 
-  // Quiz score (пока упрощённо - считаем что если есть quiz, то можно проверить)
-  // В реальности нужно хранить результаты прохождения quiz
-  const quizScore = null; // TODO: добавить систему подсчета quiz score
+  // Quiz score - получаем лучший результат по quiz для пользователя
+  const quizScore = await getBestQuizPercentage(materialId);
 
   return {
     firstXP,
@@ -174,8 +174,10 @@ export async function checkAchievements(materialId?: string): Promise<UserAchiev
         break;
 
       case 'quiz_score':
-        // TODO: реализовать проверку quiz score
-        // Пока пропускаем
+        // Проверка на основе лучшего процента по quiz
+        if (achievement.condition_value && stats.quizScore !== null) {
+          conditionMet = stats.quizScore >= achievement.condition_value;
+        }
         break;
 
       case 'tutor_messages':

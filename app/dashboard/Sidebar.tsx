@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { signOut } from '@/app/actions/auth';
 import { usePathname } from 'next/navigation';
-import { getMaterials, Material } from '@/app/actions/materials';
+import { materialsApi, type Material as ApiMaterial } from '@/lib/api';
 
 interface SidebarProps {
   userEmail?: string;
@@ -13,7 +13,7 @@ interface SidebarProps {
 
 export default function Sidebar({ userEmail }: SidebarProps) {
   const pathname = usePathname();
-  const [projects, setProjects] = useState<Material[]>([]);
+  const [projects, setProjects] = useState<ApiMaterial[]>([]);
 
   const isMaterialView = pathname?.includes('/materials/');
 
@@ -21,7 +21,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
     if (isMaterialView) {
       async function loadProjects() {
         try {
-          const data = await getMaterials();
+          const data = await materialsApi.getAll();
           setProjects(data);
         } catch (error) {
           console.error('Failed to load projects', error);

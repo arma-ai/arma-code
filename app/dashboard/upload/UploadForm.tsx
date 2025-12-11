@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { uploadMaterial } from '@/app/actions/materials';
-import { createYouTube } from '@/app/actions/createYouTube';
+import { materialsApi } from '@/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function UploadForm() {
@@ -59,10 +58,10 @@ export default function UploadForm() {
           return;
         }
 
-        const result = await uploadMaterial(formData);
+        const result = await materialsApi.uploadPDF(title.trim(), file);
         if (result && result.id) {
-          // Redirect to processing page to show progress bar
-          window.location.assign(`/dashboard/materials/processing?id=${result.id}`);
+          // Redirect to material page
+          window.location.assign(`/dashboard/materials/${result.id}`);
         }
       } else {
         const youtubeUrl = formData.get('youtubeUrl') as string;
@@ -73,25 +72,16 @@ export default function UploadForm() {
           return;
         }
 
-        console.log('[UploadForm] Calling createYouTube...');
+        console.log('[UploadForm] Creating YouTube material...');
 
-        // Create a timeout promise
-        const timeoutPromise = new Promise<{ id: string }>((_, reject) =>
-          setTimeout(() => reject(new Error('Request timed out. Please check your internet connection or try again.')), 15000)
-        );
-
-        // Race between the actual request and the timeout
-        const result = await Promise.race([
-          createYouTube(youtubeUrl.trim(), title.trim()),
-          timeoutPromise
-        ]);
+        const result = await materialsApi.createYouTube(title.trim(), youtubeUrl.trim());
 
         console.log('[UploadForm] Result:', result);
 
         if (result && result.id) {
-          console.log('[UploadForm] Redirecting to processing page:', result.id);
+          console.log('[UploadForm] Redirecting to material page:', result.id);
           // Use window.location.assign for reliable navigation
-          window.location.assign(`/dashboard/materials/processing?id=${result.id}`);
+          window.location.assign(`/dashboard/materials/${result.id}`);
         } else {
           throw new Error('No ID returned from server');
         }

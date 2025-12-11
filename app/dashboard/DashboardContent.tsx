@@ -1,14 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { Material } from '@/app/actions/materials';
+import type { Material } from '@/lib/api';
 import UploadModal from './UploadModal';
 import DeleteMaterialButton from './DeleteMaterialButton';
+import { motion, useInView } from 'motion/react';
+import { usePrefersReducedMotion } from '../components/reactbits/usePrefersReducedMotion';
 
 interface DashboardContentProps {
   materials: Material[];
 }
+
+const FadeInOnView: React.FC<React.PropsWithChildren<{ delay?: number; className?: string }>> = ({
+  children,
+  delay = 0,
+  className,
+}) => {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const ref = useRef<HTMLDivElement | null>(null);
+  const inView = useInView(ref, { amount: 0.15, once: true });
+
+  if (prefersReducedMotion) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.35, ease: 'easeOut', delay }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
 
 // Helper to extract YouTube ID
 // Helper to extract YouTube ID
@@ -23,6 +52,7 @@ function getYouTubeId(url: string): string | null {
 export default function DashboardContent({ materials }: DashboardContentProps) {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadMode, setUploadMode] = useState<'pdf' | 'youtube'>('pdf');
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const recentMaterials = materials.slice(0, 6);
 
@@ -41,12 +71,14 @@ export default function DashboardContent({ materials }: DashboardContentProps) {
             {/* Action Buttons */}
             <div className="grid md:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8 relative z-10 -mt-8">
               {/* Upload Files */}
-              <button
+              <motion.button
                 onClick={() => {
                   setUploadMode('pdf');
                   setUploadModalOpen(true);
                 }}
-                className="group bg-white rounded-xl border border-gray-300 p-5 text-left hover:border-black transition-colors"
+                whileHover={prefersReducedMotion ? undefined : { y: -4, scale: 1.01 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
+                className="group bg-white rounded-xl border border-gray-300 p-5 text-left hover:border-black transition-all shadow-sm hover:shadow-md"
               >
                 <div className="mb-3">
                   <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,15 +87,17 @@ export default function DashboardContent({ materials }: DashboardContentProps) {
                 </div>
                 <h3 className="text-lg font-bold text-black mb-1">Upload PDF</h3>
                 <p className="text-gray-400 text-xs font-medium">Only PDF files are allowed now</p>
-              </button>
+              </motion.button>
 
               {/* YouTube Link */}
-              <button
+              <motion.button
                 onClick={() => {
                   setUploadMode('youtube');
                   setUploadModalOpen(true);
                 }}
-                className="group bg-white rounded-xl border border-gray-300 p-5 text-left hover:border-black transition-colors"
+                whileHover={prefersReducedMotion ? undefined : { y: -4, scale: 1.01 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
+                className="group bg-white rounded-xl border border-gray-300 p-5 text-left hover:border-black transition-all shadow-sm hover:shadow-md"
               >
                 <div className="mb-3">
                   <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,7 +106,7 @@ export default function DashboardContent({ materials }: DashboardContentProps) {
                 </div>
                 <h3 className="text-lg font-bold text-black mb-1">YouTube videos link</h3>
                 <p className="text-gray-400 text-xs font-medium">Paste the link of any YouTube video</p>
-              </button>
+              </motion.button>
             </div>
 
             {/* Search Bar */}
@@ -113,8 +147,13 @@ export default function DashboardContent({ materials }: DashboardContentProps) {
                     : null;
 
                   return (
-                    <div key={material.id} className="group bg-white rounded-xl border border-gray-200 hover:border-black transition-all duration-300 overflow-hidden flex flex-col h-full hover:shadow-lg">
-                      <Link href={`/dashboard/materials/${material.id}`} className="flex-1 flex flex-col">
+                    <FadeInOnView key={material.id}>
+                      <motion.div
+                        className="group bg-white rounded-xl border border-gray-200 hover:border-black transition-all duration-300 overflow-hidden flex flex-col h-full hover:shadow-lg"
+                        whileHover={prefersReducedMotion ? undefined : { y: -6, scale: 1.01 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+                      >
+                        <Link href={`/dashboard/materials/${material.id}`} className="flex-1 flex flex-col">
                         {/* Preview Image */}
                         <div className="aspect-video w-full bg-gray-100 relative overflow-hidden border-b border-gray-100">
                           {material.type === 'youtube' && thumbnailUrl ? (
@@ -180,7 +219,8 @@ export default function DashboardContent({ materials }: DashboardContentProps) {
                           </div>
                         </div>
                       </Link>
-                    </div>
+                      </motion.div>
+                    </FadeInOnView>
                   );
                 })}
               </div>
@@ -213,39 +253,49 @@ export default function DashboardContent({ materials }: DashboardContentProps) {
             <section>
               <h2 className="text-3xl font-bold text-black mb-8">Overview</h2>
               <div className="grid md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Materials</div>
-                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="text-4xl font-bold text-black">{materials.length}</div>
-                </div>
-
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Videos</div>
-                    <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
-                    </svg>
-                  </div>
-                  <div className="text-4xl font-bold text-black">
-                    {materials.filter(m => m.type === 'youtube').length}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Documents</div>
-                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="text-4xl font-bold text-black">
-                    {materials.filter(m => m.type === 'pdf').length}
-                  </div>
-                </div>
+                {[
+                  {
+                    label: 'Total Materials',
+                    icon: (
+                      <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    ),
+                    value: materials.length
+                  },
+                  {
+                    label: 'Videos',
+                    icon: (
+                      <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                      </svg>
+                    ),
+                    value: materials.filter(m => m.type === 'youtube').length
+                  },
+                  {
+                    label: 'Documents',
+                    icon: (
+                      <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    ),
+                    value: materials.filter(m => m.type === 'pdf').length
+                  }
+                ].map((item, idx) => (
+                  <FadeInOnView key={item.label} delay={idx * 0.05}>
+                    <motion.div
+                      whileHover={prefersReducedMotion ? undefined : { y: -4, scale: 1.01 }}
+                      transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                      className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">{item.label}</div>
+                        {item.icon}
+                      </div>
+                      <div className="text-4xl font-bold text-black">{item.value}</div>
+                    </motion.div>
+                  </FadeInOnView>
+                ))}
               </div>
             </section>
           )}

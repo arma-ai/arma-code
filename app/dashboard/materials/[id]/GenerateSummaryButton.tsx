@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateSummary } from '@/app/actions/generateSummary';
+import { materialsApi } from '@/lib/api';
 
 interface GenerateSummaryButtonProps {
     materialId: string;
@@ -16,7 +16,7 @@ export default function GenerateSummaryButton({ materialId }: GenerateSummaryBut
         setError(null);
 
         try {
-            await generateSummary(materialId);
+            await materialsApi.regenerateSummary(materialId);
             // Trigger a reload of the data
             window.dispatchEvent(new Event('full-text-updated'));
         } catch (err) {

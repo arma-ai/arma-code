@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Quiz } from '@/app/actions/materials';
-import { addXP } from '@/app/actions/progress';
+import { quizAttemptsApi } from '@/lib/api';
+import type { QuizQuestion, QuizAttemptAnswerDetail } from '@/lib/api/types';
 
 interface InteractiveQuizProps {
-  quiz: Quiz[];
+  quiz: QuizQuestion[];
   materialId: string;
+  correctAnswers: { [key: string]: 'a' | 'b' | 'c' | 'd' }; // Map question_id -> correct_option
 }
 
-export default function InteractiveQuiz({ quiz, materialId }: InteractiveQuizProps) {
+export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: InteractiveQuizProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<'a' | 'b' | 'c' | 'd' | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -26,34 +27,60 @@ export default function InteractiveQuiz({ quiz, materialId }: InteractiveQuizPro
     setSelectedAnswer(option);
     setShowResult(true);
 
-    const isCorrect = option === currentQuestion.correct_option;
+    const correctOption = correctAnswers[currentQuestion.id];
+    const isCorrect = option === correctOption;
     const newAnswers = [...answers, {
       questionId: currentQuestion.id,
       selected: option,
       correct: isCorrect,
     }];
     setAnswers(newAnswers);
-
-    // Начисление XP за правильный ответ (10 XP)
-    if (isCorrect) {
-      addXP(materialId, 10).then(() => {
-        window.dispatchEvent(new Event('progress-updated'));
-      }).catch(console.error);
-    }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLastQuestion) {
       // Завершение quiz
-      const correctCount = answers.filter(a => a.correct).length + (selectedAnswer === currentQuestion.correct_option ? 1 : 0);
+      const correctOption = correctAnswers[currentQuestion.id];
+      const isLastCorrect = selectedAnswer === correctOption;
+      const correctCount = answers.filter(a => a.correct).length + (isLastCorrect ? 1 : 0);
       setScore(correctCount);
       setQuizCompleted(true);
 
-      // Начисление XP за завершение quiz (20 XP)
-      addXP(materialId, 20).then(() => {
-        window.dispatchEvent(new Event('progress-updated'));
-        window.dispatchEvent(new Event('achievements-updated'));
-      }).catch(console.error);
+      // Формирование массива всех ответов для сохранения
+      const allAnswers: QuizAttemptAnswerDetail[] = [
+        ...answers.map(a => ({
+          question_id: a.questionId,
+          selected: a.selected,
+          correct: a.correct,
+          correct_option: correctAnswers[a.questionId],
+        })),
+        // Добавляем последний ответ
+        {
+          question_id: currentQuestion.id,
+          selected: selectedAnswer!,
+          correct: isLastCorrect,
+          correct_option: correctOption,
+        },
+      ];
+
+      const totalQuestions = quiz.length;
+      const percentage = Math.round((correctCount / totalQuestions) * 100);
+
+      // Сохранение результата quiz в БД через API
+      try {
+        await quizAttemptsApi.saveAttempt({
+          material_id: materialId,
+          score: correctCount,
+          total_questions: totalQuestions,
+          percentage,
+          answers: allAnswers,
+        });
+
+        // Триггер обновления статистики
+        window.dispatchEvent(new Event('quiz-completed'));
+      } catch (error) {
+        console.error('[InteractiveQuiz] Failed to save quiz attempt:', error);
+      }
     } else {
       // Переход к следующему вопросу
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -101,7 +128,7 @@ export default function InteractiveQuiz({ quiz, materialId }: InteractiveQuizPro
                   Your answer: <span className="font-medium text-black">{answer?.selected.toUpperCase()}</span>
                   {!answer?.correct && (
                     <span className="ml-2">
-                      (Correct: <span className="font-medium text-black">{q.correct_option.toUpperCase()}</span>)
+                      (Correct: <span className="font-medium text-black">{correctAnswers[q.id].toUpperCase()}</span>)
                     </span>
                   )}
                 </div>
@@ -148,9 +175,10 @@ export default function InteractiveQuiz({ quiz, materialId }: InteractiveQuizPro
         {/* Answer options */}
         <div className="space-y-3">
           {(['a', 'b', 'c', 'd'] as const).map((option) => {
-            const optionText = currentQuestion[`option_${option}` as keyof Quiz] as string;
+            const optionText = currentQuestion[`option_${option}` as keyof QuizQuestion] as string;
             const isSelected = selectedAnswer === option;
-            const isCorrect = option === currentQuestion.correct_option;
+            const correctOption = correctAnswers[currentQuestion.id];
+            const isCorrect = option === correctOption;
             const showCorrect = showResult && isCorrect;
             const showIncorrect = showResult && isSelected && !isCorrect;
 
@@ -204,18 +232,18 @@ export default function InteractiveQuiz({ quiz, materialId }: InteractiveQuizPro
       {/* Result message */}
       {showResult && (
         <div className={`mb-6 p-4 rounded-lg border-2 shadow-md ${
-          selectedAnswer === currentQuestion.correct_option
+          selectedAnswer === correctAnswers[currentQuestion.id]
             ? 'bg-white border-black'
             : 'bg-gray-50 border-black/30'
         }`}>
           <p className={`font-semibold ${
-            selectedAnswer === currentQuestion.correct_option
+            selectedAnswer === correctAnswers[currentQuestion.id]
               ? 'text-black'
               : 'text-gray-700'
           }`}>
-            {selectedAnswer === currentQuestion.correct_option
+            {selectedAnswer === correctAnswers[currentQuestion.id]
               ? '✓ Correct!'
-              : `✗ Incorrect. The correct answer is ${currentQuestion.correct_option.toUpperCase()}.`}
+              : `✗ Incorrect. The correct answer is ${correctAnswers[currentQuestion.id].toUpperCase()}.`}
           </p>
         </div>
       )}

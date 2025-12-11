@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { sendTutorMessage } from '@/app/actions/tutorChat';
-import { clearChatHistory } from '@/app/actions/clearChat';
-import { TutorMessage } from '@/app/actions/materials';
+import { tutorApi, type TutorMessage } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface TutorChatProps {
@@ -54,11 +52,10 @@ export default function TutorChat({ materialId, initialMessages }: TutorChatProp
         // Fetch latest messages from server to ensure history is up to date
         // This fixes the issue where switching tabs (unmounting) caused history to be lost
         // if the parent component didn't re-fetch.
-        const { getTutorMessages } = await import('@/app/actions/tutorChat');
-        const latestMessages = await getTutorMessages(materialId);
+        const history = await tutorApi.getHistory(materialId);
 
-        if (mounted && latestMessages && latestMessages.length > 0) {
-          setMessages(latestMessages);
+        if (mounted && history.messages && history.messages.length > 0) {
+          setMessages(history.messages);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
@@ -82,12 +79,18 @@ export default function TutorChat({ materialId, initialMessages }: TutorChatProp
     setError(null);
 
     try {
-      const updatedMessages = await sendTutorMessage(materialId, userMessage);
-      setMessages(updatedMessages);
+      // Отправляем сообщение и получаем ответ AI
+      const aiResponse = await tutorApi.sendMessage(materialId, {
+        message: userMessage,
+        context: 'chat'
+      });
+
+      // Обновляем историю чата
+      const history = await tutorApi.getHistory(materialId);
+      setMessages(history.messages);
       window.dispatchEvent(new Event('progress-updated'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
-      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -103,7 +106,7 @@ export default function TutorChat({ materialId, initialMessages }: TutorChatProp
     isClearingRef.current = true;
 
     try {
-      await clearChatHistory(materialId);
+      await tutorApi.clearHistory(materialId);
       setMessages([]);
       window.dispatchEvent(new CustomEvent('tutor-message-updated', {
         detail: { materialId, messages: [] }

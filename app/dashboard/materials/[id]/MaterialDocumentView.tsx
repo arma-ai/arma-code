@@ -50,6 +50,7 @@ export interface MaterialDocumentViewProps {
   filePath?: string | null;
   pdfUrl?: string | null;
   youtubeUrl?: string | null;
+  initialData?: any; // MaterialDetailResponse containing full_text, summary, etc.
 }
 
 type TabType = 'chat' | 'flashcards' | 'quiz' | 'summary' | 'notes' | 'podcast' | 'presentation';
@@ -61,15 +62,17 @@ export default function MaterialDocumentView({
   filePath,
   pdfUrl,
   youtubeUrl,
+  initialData
 }: MaterialDocumentViewProps) {
-  const [fullText, setFullText] = useState<string | null>(null);
-  const [summary, setSummary] = useState<MaterialSummary | null>(null);
-  const [notes, setNotes] = useState<MaterialNotes | null>(null);
+  const [fullText, setFullText] = useState<string | null>(initialData?.full_text || null);
+  const [summary, setSummary] = useState<MaterialSummary | null>(initialData?.summary || null);
+  const [notes, setNotes] = useState<MaterialNotes | null>(initialData?.notes || null);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [quiz, setQuiz] = useState<Quiz[]>([]);
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
   const [podcastData, setPodcastData] = useState<{ script: string | null; audioUrl: string | null }>({ script: null, audioUrl: null });
   const [presentationData, setPresentationData] = useState<{ status: string | null; url: string | null; embedUrl: string | null }>({ status: null, url: null, embedUrl: null });
+  
   const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false);
   const [richBlocks, setRichBlocks] = useState<RichDocumentBlock[]>([]);
   const [richMetadata, setRichMetadata] = useState<Record<string, any> | null>(null);
@@ -79,7 +82,7 @@ export default function MaterialDocumentView({
   const [richHasRequested, setRichHasRequested] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabType>('chat');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
 
   // Refs and state for timestamped transcript
@@ -141,11 +144,20 @@ export default function MaterialDocumentView({
   }, [materialId]);
 
   const loadCriticalData = useCallback(async () => {
+    if (initialData && initialData.full_text) {
+        console.log('[MaterialDocumentView] Using initial data, skipping critical load');
+        setLoading(false);
+        loadSecondaryData();
+        return;
+    }
+
+    console.log('[MaterialDocumentView] Loading critical data...');
     setLoading(true);
     setError(null);
 
     try {
       const textData = await getMaterialFullText(materialId);
+      console.log('[MaterialDocumentView] Full text loaded');
 
       if (!isMountedRef.current) {
         return;
@@ -160,14 +172,14 @@ export default function MaterialDocumentView({
       setLoading(false);
       loadSecondaryData();
     } catch (err) {
-      console.error('Failed to load material data:', err);
+      console.error('[MaterialDocumentView] Failed to load material data:', err);
       if (!isMountedRef.current) {
         return;
       }
       setError('Failed to load material data. Please try again.');
       setLoading(false);
     }
-  }, [materialId, loadSecondaryData]);
+  }, [materialId, loadSecondaryData, initialData]);
 
   useEffect(() => {
     loadCriticalData();
@@ -302,49 +314,33 @@ export default function MaterialDocumentView({
         </div>
 
         {/* Right Header (Tabs) - 35% */}
-        <div className="w-[35%] px-6 flex items-center justify-center">
+        <div className="w-[35%] px-2 flex items-center justify-end">
           {/* Tab Navigation - Floating Pill Design */}
-          <div className="flex items-center gap-1 p-1.5 bg-gray-100/80 rounded-full overflow-x-auto scrollbar-hide max-w-full shadow-inner">
+          <div className="flex items-center bg-white rounded-full border border-gray-200 p-1 shadow-sm">
             {[
-              { id: 'chat', label: 'Chat', icon: null },
-              { id: 'flashcards', label: 'Flashcards', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
-              { id: 'podcast', label: 'Podcast', icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z' },
-              { id: 'presentation', label: 'Presentation', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' }, // New Tab
-              { id: 'quiz', label: 'Quiz', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-              { id: 'summary', label: 'Summary', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-              { id: 'notes', label: 'Notes', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
+              { id: 'chat', label: 'AI chat with tutor' },
+              { id: 'flashcards', label: 'Flashcards' },
+              { id: 'quiz', label: 'Quiz' },
+              { id: 'summary', label: 'Summary' },
+              { id: 'notes', label: 'My Notes' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
                 className={`
-                  flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap flex-shrink-0
+                  flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
                   ${activeTab === tab.id
-                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5'
-                    : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'
+                    ? 'bg-white text-black shadow-sm ring-1 ring-black/5 font-semibold'
+                    : 'text-gray-500 hover:text-gray-700'
                   }
                 `}
               >
-                {tab.id === 'chat' ? (
-                  <span className={`w-2 h-2 rounded-full shadow-sm ${activeTab === 'chat' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon || ''} />
-                  </svg>
+                {tab.id === 'chat' && (
+                  <span className={`w-2 h-2 rounded-full ${activeTab === 'chat' ? 'bg-[#22C55E]' : 'bg-gray-300'}`} />
                 )}
                 {tab.label}
               </button>
             ))}
-
-            {/* Divider */}
-            <div className="w-px h-5 bg-gray-300/50 mx-2 flex-shrink-0"></div>
-
-            {/* Expand Icon */}
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-white transition-all flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-            </button>
           </div>
         </div>
       </div>

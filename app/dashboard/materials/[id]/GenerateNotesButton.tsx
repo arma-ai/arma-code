@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateNotes } from '@/app/actions/generateNotes';
+import { materialsApi } from '@/lib/api';
 
 interface GenerateNotesButtonProps {
     materialId: string;
@@ -16,7 +16,7 @@ export default function GenerateNotesButton({ materialId }: GenerateNotesButtonP
         setError(null);
 
         try {
-            await generateNotes(materialId);
+            await materialsApi.regenerateNotes(materialId);
             // Trigger a reload of the data
             window.dispatchEvent(new Event('full-text-updated'));
         } catch (err) {

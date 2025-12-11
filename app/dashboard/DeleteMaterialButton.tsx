@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { deleteMaterial } from '@/app/actions/materials';
+import { materialsApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface DeleteMaterialButtonProps {
@@ -22,7 +22,7 @@ export default function DeleteMaterialButton({ materialId, materialTitle }: Dele
 
     setLoading(true);
     try {
-      await deleteMaterial(materialId);
+      await materialsApi.delete(materialId);
       // Редирект на dashboard после успешного удаления
       router.push('/dashboard');
       router.refresh();

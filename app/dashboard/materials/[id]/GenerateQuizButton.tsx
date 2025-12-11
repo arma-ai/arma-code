@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateQuiz } from '@/app/actions/generateQuiz';
+import { materialsApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 interface GenerateQuizButtonProps {
@@ -18,7 +18,7 @@ export default function GenerateQuizButton({ materialId }: GenerateQuizButtonPro
     setError(null);
 
     try {
-      await generateQuiz(materialId);
+      await materialsApi.regenerateQuiz(materialId);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate quiz');
