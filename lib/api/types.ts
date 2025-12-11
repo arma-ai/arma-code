@@ -129,13 +129,13 @@ export interface Material {
   source?: string;
   processing_status: ProcessingStatus;
   processing_progress: number;
+  summary?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface MaterialDetailResponse extends Material {
   full_text?: string;
-  summary?: string;
   notes?: string;
 }
 
@@ -170,7 +170,7 @@ export interface TutorMessage {
   material_id: string;
   role: TutorMessageRole;
   content: string;
-  context: TutorMessageContext;
+  context?: TutorMessageContext;
   created_at: string;
 }
 

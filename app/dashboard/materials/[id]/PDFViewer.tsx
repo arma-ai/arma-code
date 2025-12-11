@@ -6,8 +6,8 @@ import { askAboutSelection } from '@/app/actions/askAboutSelection';
 interface PDFViewerProps {
   fileUrl: string;
   materialId: string;
-  showOriginal: boolean;
-  onToggleOriginal: () => void;
+  showOriginal?: boolean;
+  onToggleOriginal?: () => void;
 }
 
 export default function PDFViewer({ fileUrl, materialId, showOriginal, onToggleOriginal }: PDFViewerProps) {
@@ -192,7 +192,7 @@ export default function PDFViewer({ fileUrl, materialId, showOriginal, onToggleO
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
           <div ref={questionBoxRef} className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
             <h3 className="text-lg font-bold mb-3">Ask AI about selected text</h3>
-            <p className="mb-2 text-sm text-gray-600 italic">"{savedSelectedText}"</p>
+            <p className="mb-2 text-sm text-gray-600 italic">&ldquo;{savedSelectedText}&rdquo;</p>
             <textarea
               value={question}
               onChange={e => setQuestion(e.target.value)}

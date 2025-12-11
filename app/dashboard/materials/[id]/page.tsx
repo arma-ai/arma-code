@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { authApi, authStorage, materialsApi } from '@/lib/api';
+import type { Material } from '@/lib/api/types';
 import SidebarClient from './SidebarClient';
 import MaterialDocumentView from './MaterialDocumentView';
 import Link from 'next/link';
@@ -60,7 +61,7 @@ export default function MaterialPage() {
             throw new Error('Failed to load material details');
         }
 
-        let materials = [];
+        let materials: Material[] = [];
         try {
             console.log('Fetching all materials...');
             materials = await materialsApi.getAll();

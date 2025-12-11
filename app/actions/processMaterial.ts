@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import OpenAI from 'openai';
+// @ts-ignore - pdf-parse не имеет правильных типов для ES modules
 import * as pdfParse from 'pdf-parse';
 import { parseRichDocument } from '@/lib/rich-document-parser';
 import { saveRichContent } from '@/lib/save-rich-content';

@@ -147,7 +147,12 @@ class RetroEffectImpl extends Effect {
   }
 }
 
-const RetroEffect = wrapEffect(RetroEffectImpl);
+interface RetroEffectProps {
+  colorNum?: number;
+  pixelSize?: number;
+}
+
+const RetroEffect = wrapEffect(RetroEffectImpl) as unknown as React.FC<RetroEffectProps>;
 
 export interface DitherProps {
   waveSpeed?: number;

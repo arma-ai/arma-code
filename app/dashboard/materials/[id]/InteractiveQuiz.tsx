@@ -7,7 +7,7 @@ import type { QuizQuestion, QuizAttemptAnswerDetail } from '@/lib/api/types';
 interface InteractiveQuizProps {
   quiz: QuizQuestion[];
   materialId: string;
-  correctAnswers: { [key: string]: 'a' | 'b' | 'c' | 'd' }; // Map question_id -> correct_option
+  correctAnswers?: { [key: string]: 'a' | 'b' | 'c' | 'd' }; // Map question_id -> correct_option
 }
 
 export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: InteractiveQuizProps) {
@@ -27,7 +27,7 @@ export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: In
     setSelectedAnswer(option);
     setShowResult(true);
 
-    const correctOption = correctAnswers[currentQuestion.id];
+    const correctOption = correctAnswers?.[currentQuestion.id];
     const isCorrect = option === correctOption;
     const newAnswers = [...answers, {
       questionId: currentQuestion.id,
@@ -40,7 +40,7 @@ export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: In
   const handleNext = async () => {
     if (isLastQuestion) {
       // Завершение quiz
-      const correctOption = correctAnswers[currentQuestion.id];
+      const correctOption = correctAnswers?.[currentQuestion.id];
       const isLastCorrect = selectedAnswer === correctOption;
       const correctCount = answers.filter(a => a.correct).length + (isLastCorrect ? 1 : 0);
       setScore(correctCount);
@@ -52,14 +52,14 @@ export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: In
           question_id: a.questionId,
           selected: a.selected,
           correct: a.correct,
-          correct_option: correctAnswers[a.questionId],
+          correct_option: correctAnswers?.[a.questionId] || 'a',
         })),
         // Добавляем последний ответ
         {
           question_id: currentQuestion.id,
           selected: selectedAnswer!,
           correct: isLastCorrect,
-          correct_option: correctOption,
+          correct_option: correctOption || 'a',
         },
       ];
 
@@ -128,7 +128,7 @@ export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: In
                   Your answer: <span className="font-medium text-black">{answer?.selected.toUpperCase()}</span>
                   {!answer?.correct && (
                     <span className="ml-2">
-                      (Correct: <span className="font-medium text-black">{correctAnswers[q.id].toUpperCase()}</span>)
+                      (Correct: <span className="font-medium text-black">{correctAnswers?.[q.id].toUpperCase()}</span>)
                     </span>
                   )}
                 </div>
@@ -177,7 +177,7 @@ export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: In
           {(['a', 'b', 'c', 'd'] as const).map((option) => {
             const optionText = currentQuestion[`option_${option}` as keyof QuizQuestion] as string;
             const isSelected = selectedAnswer === option;
-            const correctOption = correctAnswers[currentQuestion.id];
+            const correctOption = correctAnswers?.[currentQuestion.id];
             const isCorrect = option === correctOption;
             const showCorrect = showResult && isCorrect;
             const showIncorrect = showResult && isSelected && !isCorrect;
@@ -232,18 +232,18 @@ export default function InteractiveQuiz({ quiz, materialId, correctAnswers }: In
       {/* Result message */}
       {showResult && (
         <div className={`mb-6 p-4 rounded-lg border-2 shadow-md ${
-          selectedAnswer === correctAnswers[currentQuestion.id]
+          selectedAnswer === correctAnswers?.[currentQuestion.id]
             ? 'bg-white border-black'
             : 'bg-gray-50 border-black/30'
         }`}>
           <p className={`font-semibold ${
-            selectedAnswer === correctAnswers[currentQuestion.id]
+            selectedAnswer === correctAnswers?.[currentQuestion.id]
               ? 'text-black'
               : 'text-gray-700'
           }`}>
-            {selectedAnswer === correctAnswers[currentQuestion.id]
+            {selectedAnswer === correctAnswers?.[currentQuestion.id]
               ? '✓ Correct!'
-              : `✗ Incorrect. The correct answer is ${correctAnswers[currentQuestion.id].toUpperCase()}.`}
+              : `✗ Incorrect. The correct answer is ${correctAnswers?.[currentQuestion.id].toUpperCase()}.`}
           </p>
         </div>
       )}
