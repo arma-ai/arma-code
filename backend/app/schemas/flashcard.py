@@ -27,7 +27,7 @@ class FlashcardCreate(FlashcardBase):
     )
 
 
-class FlashcardResponse(BaseSchema, TimestampSchema):
+class FlashcardResponse(TimestampSchema):
     """Schema for flashcard response."""
     id: UUID
     material_id: UUID

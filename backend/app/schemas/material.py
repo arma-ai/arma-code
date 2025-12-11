@@ -57,21 +57,21 @@ class MaterialUpdate(BaseModel):
     )
 
 
-class MaterialSummaryResponse(BaseSchema, TimestampSchema):
+class MaterialSummaryResponse(TimestampSchema):
     """Schema for material summary response."""
     id: UUID
     material_id: UUID
     summary: str
 
 
-class MaterialNotesResponse(BaseSchema, TimestampSchema):
+class MaterialNotesResponse(TimestampSchema):
     """Schema for material notes response."""
     id: UUID
     material_id: UUID
     notes: str
 
 
-class MaterialResponse(BaseSchema, TimestampSchema):
+class MaterialResponse(TimestampSchema):
     """Schema for material list response."""
     id: UUID
     user_id: UUID
@@ -162,7 +162,7 @@ class TutorMessageRequest(BaseModel):
     )
 
 
-class TutorMessageResponse(BaseSchema, TimestampSchema):
+class TutorMessageResponse(TimestampSchema):
     """Schema for tutor message response."""
     id: UUID
     material_id: UUID

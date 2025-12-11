@@ -12,3 +12,4 @@ def import_models():
     from app.infrastructure.database.models import embedding  # noqa
     from app.infrastructure.database.models import flashcard  # noqa
     from app.infrastructure.database.models import quiz  # noqa
+    from app.infrastructure.database.models import quiz_attempt  # noqa

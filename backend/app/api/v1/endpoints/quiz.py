@@ -17,6 +17,9 @@ from app.schemas.quiz import (
     QuizAnswerResponse,
     QuizAttemptRequest,
     QuizAttemptResponse,
+    QuizAttemptSaveRequest,
+    QuizAttemptHistoryResponse,
+    QuizStatisticsResponse,
 )
 from app.schemas.common import MessageResponse
 
@@ -291,3 +294,149 @@ async def delete_quiz_question(
     await db.commit()
 
     return {"message": "Quiz question deleted successfully"}
+
+
+# ===== Quiz Attempt Endpoints (Scoring System) =====
+
+@router.post("/quiz/attempts/save", response_model=QuizAttemptHistoryResponse, status_code=status.HTTP_201_CREATED)
+async def save_quiz_attempt(
+    attempt_data: QuizAttemptSaveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Save quiz attempt result to database.
+
+    Args:
+        attempt_data: Quiz attempt data with score and answers
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        QuizAttemptHistoryResponse: Saved attempt
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    from app.domain.services.quiz_service import QuizService
+
+    # Verify material ownership
+    await verify_material_owner(attempt_data.material_id, current_user, db)
+
+    # Save attempt through service
+    service = QuizService(db)
+    try:
+        saved_attempt = await service.save_quiz_attempt(current_user.id, attempt_data)
+        return saved_attempt
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save quiz attempt: {str(e)}"
+        )
+
+
+@router.get("/materials/{material_id}/quiz/attempts", response_model=List[QuizAttemptHistoryResponse])
+async def get_quiz_attempts_history(
+    material_id: UUID,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get quiz attempts history for a material.
+
+    Args:
+        material_id: Material ID
+        limit: Maximum number of attempts to return
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        List[QuizAttemptHistoryResponse]: List of attempts
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    from app.domain.services.quiz_service import QuizService
+
+    await verify_material_owner(material_id, current_user, db)
+
+    service = QuizService(db)
+    attempts = await service.get_user_attempts(
+        user_id=current_user.id,
+        material_id=material_id,
+        limit=limit
+    )
+
+    return attempts
+
+
+@router.get("/materials/{material_id}/quiz/statistics", response_model=QuizStatisticsResponse)
+async def get_quiz_statistics(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get quiz statistics for a material.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        QuizStatisticsResponse: Statistics with best score, average, etc.
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    from app.domain.services.quiz_service import QuizService
+
+    await verify_material_owner(material_id, current_user, db)
+
+    service = QuizService(db)
+    statistics = await service.get_quiz_statistics(
+        user_id=current_user.id,
+        material_id=material_id
+    )
+
+    return statistics
+
+
+@router.delete("/quiz/attempts/{attempt_id}", response_model=MessageResponse)
+async def delete_quiz_attempt(
+    attempt_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Delete a quiz attempt.
+
+    Args:
+        attempt_id: Attempt ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        MessageResponse: Success message
+
+    Raises:
+        HTTPException: If attempt not found or access denied
+    """
+    from app.domain.services.quiz_service import QuizService
+
+    service = QuizService(db)
+    try:
+        success = await service.delete_attempt(attempt_id, current_user.id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quiz attempt not found"
+            )
+        return {"message": "Quiz attempt deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )

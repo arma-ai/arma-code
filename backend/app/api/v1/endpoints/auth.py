@@ -15,20 +15,20 @@ from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Register a new user.
+    Register a new user and return JWT token.
 
     Args:
         user_data: User registration data
         db: Database session
 
     Returns:
-        UserResponse: Created user
+        Token: JWT access token
 
     Raises:
         HTTPException: If email already registered
@@ -58,7 +58,12 @@ async def register(
     await db.commit()
     await db.refresh(new_user)
 
-    return new_user
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": str(new_user.id), "email": new_user.email}
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/login", response_model=Token)

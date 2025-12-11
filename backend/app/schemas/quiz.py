@@ -42,7 +42,7 @@ class QuizQuestionCreate(QuizQuestionBase):
     )
 
 
-class QuizQuestionResponse(BaseSchema, TimestampSchema):
+class QuizQuestionResponse(TimestampSchema):
     """Schema for quiz question response (without correct answer)."""
     id: UUID
     material_id: UUID
@@ -179,6 +179,106 @@ class QuizAttemptResponse(BaseModel):
                 "correct_answers": 8,
                 "score_percentage": 80.0,
                 "results": []
+            }
+        }
+    )
+
+
+# ===== Quiz Attempt Storage Schemas =====
+
+class QuizAttemptAnswerDetail(BaseModel):
+    """Детали одного ответа в попытке."""
+    question_id: UUID
+    selected: Literal['a', 'b', 'c', 'd']
+    correct: bool
+    correct_option: Literal['a', 'b', 'c', 'd']
+
+
+class QuizAttemptSaveRequest(BaseModel):
+    """Schema для сохранения результата quiz попытки в БД."""
+    material_id: UUID
+    score: int = Field(..., ge=0)
+    total_questions: int = Field(..., gt=0)
+    percentage: int = Field(..., ge=0, le=100)
+    answers: List[QuizAttemptAnswerDetail]
+
+    @field_validator('score')
+    @classmethod
+    def validate_score(cls, v, info):
+        data = info.data
+        if 'total_questions' in data and v > data['total_questions']:
+            raise ValueError('score cannot exceed total_questions')
+        return v
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "material_id": "123e4567-e89b-12d3-a456-426614174000",
+                "score": 8,
+                "total_questions": 10,
+                "percentage": 80,
+                "answers": [
+                    {
+                        "question_id": "123e4567-e89b-12d3-a456-426614174001",
+                        "selected": "b",
+                        "correct": True,
+                        "correct_option": "b"
+                    }
+                ]
+            }
+        }
+    )
+
+
+class QuizAttemptHistoryResponse(TimestampSchema):
+    """Schema для истории попыток пользователя."""
+    id: UUID
+    user_id: UUID
+    material_id: UUID
+    score: int
+    total_questions: int
+    percentage: int
+    completed_at: datetime
+    answers: List[QuizAttemptAnswerDetail]
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "user_id": "123e4567-e89b-12d3-a456-426614174001",
+                "material_id": "123e4567-e89b-12d3-a456-426614174002",
+                "score": 8,
+                "total_questions": 10,
+                "percentage": 80,
+                "completed_at": "2024-01-01T00:00:00",
+                "answers": [],
+                "created_at": "2024-01-01T00:00:00"
+            }
+        }
+    )
+
+
+class QuizStatisticsResponse(BaseModel):
+    """Schema для статистики по quiz для материала."""
+    total_attempts: int
+    best_score: int
+    best_percentage: int
+    average_score: float
+    average_percentage: float
+    last_attempt: QuizAttemptHistoryResponse | None = None
+    attempts: List[QuizAttemptHistoryResponse]
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "total_attempts": 5,
+                "best_score": 9,
+                "best_percentage": 90,
+                "average_score": 7.5,
+                "average_percentage": 75.0,
+                "last_attempt": None,
+                "attempts": []
             }
         }
     )

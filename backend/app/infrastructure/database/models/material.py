@@ -11,6 +11,14 @@ from app.infrastructure.database.base import Base
 class MaterialType(str, enum.Enum):
     PDF = "pdf"
     YOUTUBE = "youtube"
+    DOCX = "docx"
+    DOC = "doc"
+    TXT = "txt"
+    RTF = "rtf"
+    ODT = "odt"
+    EPUB = "epub"
+    MD = "md"
+    HTML = "html"
 
 
 class ProcessingStatus(str, enum.Enum):
@@ -61,6 +69,7 @@ class Material(Base):
     notes = relationship("MaterialNotes", back_populates="material", uselist=False, cascade="all, delete-orphan")
     flashcards = relationship("Flashcard", back_populates="material", cascade="all, delete-orphan")
     quiz_questions = relationship("QuizQuestion", back_populates="material", cascade="all, delete-orphan")
+    quiz_attempts = relationship("QuizAttempt", back_populates="material", cascade="all, delete-orphan")
     embeddings = relationship("MaterialEmbedding", back_populates="material", cascade="all, delete-orphan")
     tutor_messages = relationship("TutorMessage", back_populates="material", cascade="all, delete-orphan")
 

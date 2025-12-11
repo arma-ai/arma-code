@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for creating a new user."""
-    password: str = Field(..., min_length=8, max_length=100)
+    password: str = Field(..., min_length=6, max_length=100)
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -42,7 +42,7 @@ class UserLogin(BaseModel):
     )
 
 
-class UserResponse(BaseSchema, TimestampSchema):
+class UserResponse(TimestampSchema):
     """Schema for user response."""
     id: UUID
     email: EmailStr

@@ -1,0 +1,59 @@
+"""Add quiz_attempts table
+
+Revision ID: 001_quiz_attempts
+Revises:
+Create Date: 2024-11-30
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision: str = '001_quiz_attempts'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """
+    Создание таблицы quiz_attempts для хранения попыток прохождения quiz
+    """
+    op.create_table(
+        'quiz_attempts',
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()'), nullable=False),
+        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('material_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('materials.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('score', sa.Integer(), nullable=False),
+        sa.Column('total_questions', sa.Integer(), nullable=False),
+        sa.Column('percentage', sa.Integer(), nullable=False),
+        sa.Column('answers', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column('completed_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+
+        # Constraints
+        sa.CheckConstraint('score >= 0', name='check_score_positive'),
+        sa.CheckConstraint('total_questions > 0', name='check_total_positive'),
+        sa.CheckConstraint('percentage >= 0 AND percentage <= 100', name='check_percentage_range'),
+        sa.CheckConstraint('score <= total_questions', name='check_score_not_exceeds_total'),
+    )
+
+    # Create indexes
+    op.create_index('idx_quiz_attempts_user_id', 'quiz_attempts', ['user_id'])
+    op.create_index('idx_quiz_attempts_material_id', 'quiz_attempts', ['material_id'])
+    op.create_index('idx_quiz_attempts_user_material', 'quiz_attempts', ['user_id', 'material_id'])
+    op.create_index('idx_quiz_attempts_completed_at', 'quiz_attempts', [sa.text('completed_at DESC')])
+
+
+def downgrade() -> None:
+    """
+    Удаление таблицы quiz_attempts
+    """
+    op.drop_index('idx_quiz_attempts_completed_at', table_name='quiz_attempts')
+    op.drop_index('idx_quiz_attempts_user_material', table_name='quiz_attempts')
+    op.drop_index('idx_quiz_attempts_material_id', table_name='quiz_attempts')
+    op.drop_index('idx_quiz_attempts_user_id', table_name='quiz_attempts')
+    op.drop_table('quiz_attempts')
