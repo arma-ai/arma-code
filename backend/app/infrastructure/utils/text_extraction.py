@@ -79,6 +79,7 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
     if output_path is None:
         output_path = tempfile.mkdtemp()
 
+    # Enhanced options to bypass YouTube restrictions (especially in Docker)
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -89,6 +90,23 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
         'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
+        # Options to bypass 403 errors
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Sec-Fetch-Mode': 'navigate',
+        },
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],  # Try multiple clients
+            }
+        },
+        'socket_timeout': 30,
+        'retries': 3,
+        'fragment_retries': 3,
+        'ignoreerrors': False,
+        'nocheckcertificate': True,
     }
 
     try:
@@ -140,10 +158,11 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
     """
     Extract transcript from YouTube video.
 
-    Three-tier fallback strategy:
-    1. Try to get subtitles (manual or auto-generated)
-    2. If subtitles unavailable, download audio and use Whisper API
-    3. If both fail, raise error
+    Multi-tier fallback strategy:
+    1. Try to get subtitles in preferred languages (ru, en)
+    2. Try to get any available transcript and translate to English
+    3. If subtitles unavailable, download audio and use Whisper API
+    4. If all fail, raise error
 
     Args:
         url: YouTube video URL
@@ -169,14 +188,41 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
         logger.info("Strategy 1: Attempting to get subtitles...")
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
 
-        # Try manual transcripts first (more accurate)
+        transcript = None
+        
+        # Step 1a: Try manual transcripts in preferred languages first (most accurate)
         try:
-            transcript = transcript_list.find_manually_created_transcript([language, 'en'])
+            transcript = transcript_list.find_manually_created_transcript([language, 'en', 'ru'])
             logger.info(f"Found manual transcript in language: {transcript.language_code}")
-        except:
-            # Fall back to auto-generated
-            transcript = transcript_list.find_generated_transcript([language, 'en'])
-            logger.info(f"Found auto-generated transcript in language: {transcript.language_code}")
+        except Exception:
+            pass
+        
+        # Step 1b: Try auto-generated transcripts in preferred languages
+        if transcript is None:
+            try:
+                transcript = transcript_list.find_generated_transcript([language, 'en', 'ru'])
+                logger.info(f"Found auto-generated transcript in language: {transcript.language_code}")
+            except Exception:
+                pass
+        
+        # Step 1c: Try to get ANY available transcript and translate to English
+        if transcript is None:
+            logger.info("Preferred languages not found, trying any available transcript with translation...")
+            try:
+                # Get all available transcripts
+                available_transcripts = list(transcript_list)
+                if available_transcripts:
+                    # Get the first available transcript
+                    any_transcript = available_transcripts[0]
+                    logger.info(f"Found transcript in {any_transcript.language_code}, translating to English...")
+                    # Translate to English
+                    transcript = any_transcript.translate('en')
+                    logger.info(f"Successfully translated from {any_transcript.language_code} to English")
+            except Exception as translate_error:
+                logger.warning(f"Translation failed: {str(translate_error)}")
+        
+        if transcript is None:
+            raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
         # Fetch and combine transcript
         transcript_data = transcript.fetch()

@@ -70,7 +70,7 @@ export default function MaterialDocumentView({
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [quiz, setQuiz] = useState<Quiz[]>([]);
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
-  const [podcastData, setPodcastData] = useState<{ script: string | null; audioUrl: string | null }>({ script: null, audioUrl: null });
+  const [podcastData, setPodcastData] = useState<{ script: Array<{speaker: string; text: string}> | null; audioUrl: string | null }>({ script: null, audioUrl: null });
   const [presentationData, setPresentationData] = useState<{ status: string | null; url: string | null; embedUrl: string | null }>({ status: null, url: null, embedUrl: null });
   
   const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false);
@@ -130,7 +130,8 @@ export default function MaterialDocumentView({
 
     if (secondaryResults[5].status === 'fulfilled') {
       const podcastInfo = secondaryResults[5].value;
-      setPodcastData({ script: podcastInfo.podcastScript, audioUrl: podcastInfo.podcastAudioUrl });
+      const parsedScript = podcastInfo.podcastScript ? JSON.parse(podcastInfo.podcastScript) : null;
+      setPodcastData({ script: parsedScript, audioUrl: podcastInfo.podcastAudioUrl });
     }
 
     if (secondaryResults[6].status === 'fulfilled') {
@@ -321,6 +322,8 @@ export default function MaterialDocumentView({
               { id: 'chat', label: 'AI chat with tutor' },
               { id: 'flashcards', label: 'Flashcards' },
               { id: 'quiz', label: 'Quiz' },
+              { id: 'podcast', label: '🎙️ Podcast' },
+              { id: 'presentation', label: '📊 Presentation' },
               { id: 'summary', label: 'Summary' },
               { id: 'notes', label: 'My Notes' },
             ].map((tab) => (
@@ -581,7 +584,8 @@ export default function MaterialDocumentView({
                   podcastAudioUrl={podcastData.audioUrl}
                   onUpdate={async () => {
                     const data = await getMaterialPodcastData(materialId);
-                    setPodcastData({ script: data.podcastScript, audioUrl: data.podcastAudioUrl });
+                    const parsedScript = data.podcastScript ? JSON.parse(data.podcastScript) : null;
+                    setPodcastData({ script: parsedScript, audioUrl: data.podcastAudioUrl });
                   }}
                 />
               </div>

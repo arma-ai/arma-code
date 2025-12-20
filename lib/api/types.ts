@@ -137,6 +137,11 @@ export interface Material {
 export interface MaterialDetailResponse extends Material {
   full_text?: string;
   notes?: string;
+  podcast_script?: Array<{speaker: string; text: string}>;
+  podcast_audio_url?: string;
+  presentation_status?: string;
+  presentation_url?: string;
+  presentation_embed_url?: string;
 }
 
 export interface MaterialCreateRequest {

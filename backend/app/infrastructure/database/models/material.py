@@ -59,6 +59,15 @@ class Material(Base):
     full_text = Column(Text, nullable=True)
     rich_content = Column(JSONB, nullable=True)  # Structured content (headings, lists, etc.)
 
+    # Podcast
+    podcast_script = Column(JSONB, nullable=True)  # Array of {speaker, text}
+    podcast_audio_url = Column(String(500), nullable=True)  # URL to generated audio file
+
+    # Presentation
+    presentation_status = Column(String(50), nullable=True)  # 'generating', 'completed', 'failed'
+    presentation_url = Column(String(500), nullable=True)  # Download URL
+    presentation_embed_url = Column(String(500), nullable=True)  # Embed URL for preview
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

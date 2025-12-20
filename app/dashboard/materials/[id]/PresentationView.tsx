@@ -19,7 +19,7 @@ export default function PresentationView({ materialId, presentationStatus, prese
         if (isGenerating) return;
         setIsGenerating(true);
         try {
-            const { generatePresentation } = await import('@/app/actions/presentation');
+            const { generatePresentation } = await import('@/lib/api/presentation');
             await generatePresentation(materialId);
             onUpdate();
         } catch (e) {

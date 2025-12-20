@@ -592,54 +592,29 @@ export async function deleteMaterial(materialId: string) {
 }
 
 export async function getMaterialPodcastData(materialId: string): Promise<{ podcastScript: string | null; podcastAudioUrl: string | null }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { podcastScript: null, podcastAudioUrl: null };
+  try {
+    // Используем Python backend API
+    const { materialsApi } = await import('@/lib/api');
+    const material = await materialsApi.getById(materialId);
 
-  const { data, error } = await supabase
-    .from('materials')
-    .select('podcast_script, podcast_audio_url')
-    .eq('id', materialId)
-    .single();
-
-  if (error || !data) return { podcastScript: null, podcastAudioUrl: null };
-
-  // Generate signed URL if we have a path stored
-  let signedUrl = data.podcast_audio_url;
-  if (data.podcast_audio_url && !data.podcast_audio_url.startsWith('http')) {
-    const { data: signedData } = await supabase
-      .storage
-      .from('materials')
-      .createSignedUrl(data.podcast_audio_url, 3600); // 1 hour expiry
-
-    if (signedData) {
-      signedUrl = signedData.signedUrl;
-    }
+    return {
+      podcastScript: material.podcast_script ? JSON.stringify(material.podcast_script) : null,
+      podcastAudioUrl: material.podcast_audio_url || null,
+    };
+  } catch (error) {
+    console.error('Failed to fetch podcast data:', error);
+    return { podcastScript: null, podcastAudioUrl: null };
   }
-
-  return {
-    podcastScript: data.podcast_script,
-    podcastAudioUrl: signedUrl
-  };
 }
 
 export async function getMaterialPresentationData(materialId: string): Promise<{ presentationStatus: string | null; presentationUrl: string | null; presentationEmbedUrl: string | null }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { presentationStatus: null, presentationUrl: null, presentationEmbedUrl: null };
-
-  const { data, error } = await supabase
-    .from('materials')
-    .select('presentation_status, presentation_url, presentation_embed_url')
-    .eq('id', materialId)
-    .single();
-
-  if (error || !data) return { presentationStatus: null, presentationUrl: null, presentationEmbedUrl: null };
+  const { materialsApi } = await import('@/lib/api');
+  const material = await materialsApi.getById(materialId);
 
   return {
-    presentationStatus: data.presentation_status,
-    presentationUrl: data.presentation_url,
-    presentationEmbedUrl: data.presentation_embed_url
+    presentationStatus: material.presentation_status || null,
+    presentationUrl: material.presentation_url || null,
+    presentationEmbedUrl: material.presentation_embed_url || null,
   };
 }
 

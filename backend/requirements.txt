@@ -147,3 +147,4 @@ wheel==0.45.1
 yarl==1.22.0
 youtube-transcript-api==0.6.3
 yt-dlp==2024.11.18
+tavily-python==0.5.0

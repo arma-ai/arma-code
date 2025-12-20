@@ -46,18 +46,24 @@ export default function LandingContent() {
             <Logo size="sm" />
           </div>
 
-          <div className="hidden md:flex items-center gap-1 bg-gray-100/50 p-1 rounded-full">
-            <a href="#features" className="px-5 py-2 rounded-full text-sm font-medium text-gray-600 hover:bg-white hover:text-black hover:shadow-sm transition-all">Features</a>
-            <a href="#about" className="px-5 py-2 rounded-full text-sm font-medium text-gray-600 hover:bg-white hover:text-black hover:shadow-sm transition-all">About arma</a>
-            <a href="#pricing" className="px-5 py-2 rounded-full text-sm font-medium text-gray-600 hover:bg-white hover:text-black hover:shadow-sm transition-all">Pricing</a>
+          <div className="hidden md:flex items-center gap-1">
+            <a href="#features" className="px-5 py-2 rounded-full text-sm font-medium text-gray-500 hover:text-black transition-all">Features</a>
+            <a href="#pricing" className="px-5 py-2 rounded-full text-sm font-medium text-gray-500 hover:text-black transition-all">Pricing</a>
+            <a href="#about" className="px-5 py-2 rounded-full text-sm font-medium text-gray-500 hover:text-black transition-all">About</a>
           </div>
 
-          <div className="pr-2">
+          <div className="flex items-center gap-3 pr-2">
             <Link
               href="/login"
-              className="px-6 py-2.5 rounded-full text-sm font-semibold text-black bg-white border border-gray-200 hover:bg-gray-50 transition-all"
+              className="px-5 py-2 rounded-full text-sm font-medium text-gray-700 hover:text-black transition-all border border-gray-200 hover:border-gray-300"
             >
-              Start free
+              Log in
+            </Link>
+            <Link
+              href="/login"
+              className="px-6 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm hover:shadow-md"
+            >
+              Start Learning →
             </Link>
           </div>
         </div>

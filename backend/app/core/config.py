@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = ""
 
+    # Tavily (Web Search)
+    TAVILY_API_KEY: str = "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"
+
     # JWT
     JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
     JWT_ALGORITHM: str = "HS256"
@@ -59,6 +62,8 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
         "http://localhost:8000",
     ]
     BACKEND_CORS_ORIGIN_REGEX: str = r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"

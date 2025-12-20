@@ -31,6 +31,8 @@ from app.schemas.material import (
 from app.schemas.common import MessageResponse, PaginationParams
 from app.domain.services.material_processing_service import MaterialProcessingService
 from app.domain.services.tutor_service import TutorService
+from app.domain.services.podcast_service import PodcastService
+from app.domain.services.presentation_service import PresentationService
 from app.infrastructure.utils.file_storage import FileStorageService
 from app.infrastructure.utils.text_extraction import (
     extract_text_from_pdf,
@@ -617,3 +619,270 @@ async def regenerate_quiz(
     quiz_count = await processing_service.regenerate_quiz(material_id, count)
 
     return {"message": f"Regenerated {quiz_count} quiz questions successfully"}
+
+
+@router.post("/{material_id}/podcast/generate-script")
+async def generate_podcast_script(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Generate podcast script for a material using ChatGPT.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        dict: Podcast script data
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    await verify_material_owner(material_id, current_user, db)
+
+    result = await db.execute(
+        select(Material).where(Material.id == material_id)
+    )
+    material = result.scalar_one_or_none()
+
+    if not material:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Material not found"
+        )
+
+    if not material.full_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Material has no text to generate podcast from"
+        )
+
+    try:
+        podcast_service = PodcastService()
+        script = await podcast_service.generate_podcast_script(material)
+
+        # Сохраняем скрипт в БД
+        material.podcast_script = script
+        await db.commit()
+
+        return {"podcast_script": script}
+
+    except Exception as e:
+        logger.error(f"Failed to generate podcast script: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate podcast script: {str(e)}"
+        )
+
+
+@router.post("/{material_id}/podcast/generate-audio")
+async def generate_podcast_audio(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Generate podcast audio for a material using ElevenLabs.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        dict: Podcast audio URL
+
+    Raises:
+        HTTPException: If material not found, no script, or access denied
+    """
+    await verify_material_owner(material_id, current_user, db)
+
+    result = await db.execute(
+        select(Material).where(Material.id == material_id)
+    )
+    material = result.scalar_one_or_none()
+
+    if not material:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Material not found"
+        )
+
+    if not material.podcast_script:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Podcast script not generated yet. Generate script first."
+        )
+
+    try:
+        podcast_service = PodcastService()
+
+        # Путь для сохранения аудио
+        import time
+        storage_path = f"storage/podcasts/{current_user.id}/{material_id}_{int(time.time())}.mp3"
+
+        # Генерируем аудио
+        audio_path = await podcast_service.generate_podcast_audio(
+            material.podcast_script,
+            storage_path
+        )
+
+        # Сохраняем путь в БД
+        material.podcast_audio_url = audio_path
+        await db.commit()
+
+        return {"podcast_audio_url": audio_path}
+
+    except Exception as e:
+        logger.error(f"Failed to generate podcast audio: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate podcast audio: {str(e)}"
+        )
+
+
+@router.post("/{material_id}/presentation/generate")
+async def generate_presentation(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Generate presentation for a material using ChatGPT + SlidesGPT.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        dict: Presentation data with URLs
+
+    Raises:
+        HTTPException: If material not found or generation failed
+    """
+    await verify_material_owner(material_id, current_user, db)
+
+    result = await db.execute(
+        select(Material).where(Material.id == material_id)
+    )
+    material = result.scalar_one_or_none()
+
+    if not material:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Material not found"
+        )
+
+    if not material.full_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Material has no text to generate presentation from"
+        )
+
+    try:
+        # Обновляем статус на "generating"
+        material.presentation_status = "generating"
+        await db.commit()
+
+        presentation_service = PresentationService()
+
+        # Получаем summary если есть
+        from app.infrastructure.database.models.material import MaterialSummary
+        summary_result = await db.execute(
+            select(MaterialSummary).where(MaterialSummary.material_id == material_id)
+        )
+        summary_obj = summary_result.scalar_one_or_none()
+        summary_text = summary_obj.summary if summary_obj else None
+
+        # Генерируем презентацию
+        presentation_data = await presentation_service.generate_presentation(
+            material, summary_text
+        )
+
+        # Сохраняем результат
+        material.presentation_status = "completed"
+        material.presentation_url = presentation_data["url"]
+        material.presentation_embed_url = presentation_data.get("embed_url")
+        await db.commit()
+
+        return {
+            "presentation_url": material.presentation_url,
+            "presentation_embed_url": material.presentation_embed_url,
+            "presentation_status": material.presentation_status
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to generate presentation: {str(e)}")
+
+        # Обновляем статус на "failed"
+        material.presentation_status = "failed"
+        await db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate presentation: {str(e)}"
+        )
+
+
+@router.get("/{material_id}/summary")
+async def get_material_summary(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get summary for a material.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        MaterialSummary or null
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    await verify_material_owner(material_id, current_user, db)
+
+    result = await db.execute(
+        select(MaterialSummary).where(MaterialSummary.material_id == material_id)
+    )
+    summary = result.scalar_one_or_none()
+
+    return summary
+
+
+@router.get("/{material_id}/notes")
+async def get_material_notes(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get notes for a material.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        MaterialNotes or null
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    await verify_material_owner(material_id, current_user, db)
+
+    result = await db.execute(
+        select(MaterialNotes).where(MaterialNotes.material_id == material_id)
+    )
+    notes = result.scalar_one_or_none()
+
+    return notes

@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Logo from '../components/Logo';
 import { authApi, authStorage } from '@/lib/api';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const hasCheckedRef = useRef(false); // Используем ref вместо state
+  const hasCheckedRef = useRef(false);
 
   useEffect(() => {
     // Проверяем только один раз
@@ -121,70 +122,117 @@ export default function LoginPage() {
   // Показываем loader если идет редирект
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-[#F5F5F7] flex flex-col items-center justify-center p-4">
-        <div className="text-center">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
           <p className="text-gray-600">Redirecting to dashboard...</p>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] flex flex-col items-center justify-center p-4 relative">
-      {/* Back Button - Absolute Top Left */}
-      <div className="absolute top-6 left-6 md:top-8 md:left-8 z-10">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Subtle background decoration */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,0,0,0.02),transparent_50%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(0,0,0,0.015),transparent_50%)] pointer-events-none" />
+
+      {/* Back Button */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+        className="absolute top-6 left-6 md:top-8 md:left-8 z-10"
+      >
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black transition-colors bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200/50 hover:bg-white hover:shadow-sm"
+          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black transition-all bg-gray-50/80 backdrop-blur-sm px-4 py-2.5 rounded-full border border-gray-200/50 hover:border-gray-300 hover:shadow-sm"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
           Back to Home
         </Link>
-      </div>
+      </motion.div>
 
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-6 hover:opacity-80 transition-opacity">
+      <div className="w-full max-w-md relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="text-center mb-10"
+        >
+          <Link href="/" className="inline-block mb-8 hover:opacity-80 transition-opacity">
             <Logo size="lg" />
           </Link>
-          <h1 className="text-3xl font-bold text-[#1D1D1F] mb-2">
-            {isSignUp ? 'Create your account' : 'Welcome back'}
-          </h1>
-          <p className="text-gray-500">
-            {isSignUp ? 'Start your learning journey today' : 'Sign in to continue to your dashboard'}
-          </p>
-        </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={isSignUp ? 'signup' : 'signin'}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <h1 className="text-4xl font-bold text-[#1D1D1F] mb-3 tracking-tight">
+                {isSignUp ? 'Create account' : 'Welcome back'}
+              </h1>
+              <p className="text-gray-500 text-lg">
+                {isSignUp ? 'Start your learning journey today' : 'Sign in to continue learning'}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
 
-        <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-8 md:p-10 border border-gray-100">
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="bg-white rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.06)] p-8 md:p-10 border border-gray-100"
+        >
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm overflow-hidden"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {isSignUp && (
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 focus:border-black transition-all outline-none text-gray-900"
-                  placeholder="John Doe"
-                />
-              </div>
-            )}
+            <AnimatePresence mode="wait">
+              {isSignUp && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <label htmlFor="fullName" className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/10 focus:border-black transition-all outline-none text-[#1D1D1F] placeholder:text-gray-400"
+                    placeholder="John Doe"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="email" className="block text-sm font-semibold text-[#1D1D1F] mb-2">
                 Email address
               </label>
               <input
@@ -193,14 +241,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 focus:border-black transition-all outline-none text-gray-900"
+                className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/10 focus:border-black transition-all outline-none text-[#1D1D1F] placeholder:text-gray-400"
                 placeholder="name@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Password {isSignUp && '(min. 6 chars)'}
+              <label htmlFor="password" className="block text-sm font-semibold text-[#1D1D1F] mb-2">
+                Password {isSignUp && <span className="text-gray-400 font-normal">(min. 6 chars)</span>}
               </label>
               <input
                 id="password"
@@ -209,7 +257,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 focus:border-black transition-all outline-none text-gray-900"
+                className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/10 focus:border-black transition-all outline-none text-[#1D1D1F] placeholder:text-gray-400"
                 placeholder="••••••••"
               />
             </div>
@@ -217,9 +265,19 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-black text-white rounded-xl font-semibold hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-black/10"
+              className="w-full py-4 px-4 bg-[#1D1D1F] text-white rounded-xl font-semibold hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-black/10 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] mt-2"
             >
-              {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                isSignUp ? 'Create Account' : 'Sign In'
+              )}
             </button>
           </form>
 
@@ -229,6 +287,7 @@ export default function LoginPage() {
                 setIsSignUp(!isSignUp);
                 setError(null);
                 setPassword('');
+                setFullName('');
               }}
               className="text-sm text-gray-600 hover:text-black font-medium transition-colors"
             >
@@ -236,12 +295,12 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 pt-6 border-t border-gray-100 text-center">
             <p className="text-xs text-gray-400">
-              Powered by Python FastAPI + JWT
+              Secured with FastAPI + JWT Authentication
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -149,7 +149,7 @@ export default function Sidebar({ userEmail }: SidebarProps) {
             Free Plan
           </button>
 
-          <div className="flex items-center gap-3 px-2">
+          <div className="flex items-center gap-3 px-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
               {/* Avatar placeholder or image */}
               <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-bold">
@@ -157,13 +157,23 @@ export default function Sidebar({ userEmail }: SidebarProps) {
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-gray-900 truncate">Bobur Xolikulov</div>
+              <div className="text-xs font-bold text-gray-900 truncate">{userEmail?.split('@')[0] || 'User'}</div>
               <div className="text-[10px] text-gray-500 truncate">{userEmail}</div>
             </div>
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
           </div>
+
+          {/* Logout Button */}
+          <form action={signOut} className="w-full">
+            <button
+              type="submit"
+              className="w-full py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg font-medium text-xs transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign Out
+            </button>
+          </form>
         </div>
       </div>
     );

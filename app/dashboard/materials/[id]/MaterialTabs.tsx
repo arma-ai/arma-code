@@ -6,6 +6,7 @@ import AchievementsBlock from './AchievementsBlock';
 import InteractiveQuiz from './InteractiveQuiz';
 import InteractiveFlashcards from './InteractiveFlashcards';
 import TutorChat from './TutorChat';
+import PodcastView from './PodcastView';
 import GenerateQuizButton from './GenerateQuizButton';
 import GenerateFlashcardsButton from './GenerateFlashcardsButton';
 import SelectableText from './SelectableText';
@@ -21,6 +22,9 @@ interface MaterialTabsProps {
   tutorMessages: TutorMessage[];
   progress: UserProgress | null;
   hasAIData: boolean;
+  podcastScript: Array<{speaker: string; text: string}> | null;
+  podcastAudioUrl: string | null;
+  onUpdate: () => void;
 }
 
 export default function MaterialTabs({
@@ -32,6 +36,9 @@ export default function MaterialTabs({
   tutorMessages,
   progress,
   hasAIData,
+  podcastScript,
+  podcastAudioUrl,
+  onUpdate,
 }: MaterialTabsProps) {
   const [activeTab, setActiveTab] = useState<string>('tutor');
 
@@ -41,6 +48,7 @@ export default function MaterialTabs({
     { id: 'notes', label: 'Notes' },
     { id: 'flashcards', label: 'Flashcards' },
     { id: 'quiz', label: 'Quizzes' },
+    { id: 'podcast', label: '🎙️ Podcast' },
     { id: 'progress', label: 'Progress' },
     { id: 'achievements', label: 'Achievements' },
   ];
@@ -201,6 +209,18 @@ export default function MaterialTabs({
               )}
               {quiz.length > 0 && <InteractiveQuiz quiz={quiz} materialId={materialId} />}
             </div>
+          </div>
+        )}
+
+        {/* Podcast Tab */}
+        {activeTab === 'podcast' && (
+          <div className="h-full">
+            <PodcastView
+              materialId={materialId}
+              podcastScript={podcastScript}
+              podcastAudioUrl={podcastAudioUrl}
+              onUpdate={onUpdate}
+            />
           </div>
         )}
 
