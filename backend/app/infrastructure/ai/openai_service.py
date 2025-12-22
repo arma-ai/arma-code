@@ -10,7 +10,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
-client = AsyncOpenAI(api_key="")
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 class OpenAIService:

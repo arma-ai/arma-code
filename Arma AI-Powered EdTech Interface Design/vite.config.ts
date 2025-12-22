@@ -55,5 +55,6 @@
     server: {
       port: 3000,
       open: true,
+  allowedHosts: ['myarmax.com', '.myarmax.com'],
     },
   });

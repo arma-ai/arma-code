@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft, FileText, Youtube, MessageSquare, Brain, CheckCircle2,
@@ -20,13 +21,19 @@ import type { Material, TutorMessage, Flashcard, QuizQuestion, MaterialSummary }
 import { ViewState } from '../../App';
 
 interface ProjectDetailViewProps {
-  projectId: string | null;
-  onBack: () => void;
+  projectId?: string | null;
+  onBack?: () => void;
   onNavigate?: (view: ViewState) => void;
   onSelectDeck?: (id: number) => void;
 }
 
-export function ProjectDetailView({ projectId, onBack, onNavigate, onSelectDeck }: ProjectDetailViewProps) {
+export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack, onNavigate, onSelectDeck }: ProjectDetailViewProps) {
+  const { id: urlId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  // Use URL parameter if available, otherwise use prop
+  const projectId = urlId || propProjectId;
+  const onBack = propOnBack || (() => navigate(-1));
   const { material, loading: materialLoading } = useMaterial(projectId);
   const { summary, loading: summaryLoading } = useMaterialSummary(projectId);
   const { notes, loading: notesLoading } = useMaterialNotes(projectId);
