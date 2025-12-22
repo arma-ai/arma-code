@@ -1464,7 +1464,12 @@ function PodcastTab({ material, onRefetch }: { material: Material; onRefetch: ()
 
   useEffect(() => {
     if (material.podcast_audio_url) {
-      const audio = new Audio(material.podcast_audio_url);
+      // Build full URL for audio (backend returns relative path like /storage/...)
+      const audioUrl = material.podcast_audio_url.startsWith('http')
+        ? material.podcast_audio_url
+        : `http://localhost:8000${material.podcast_audio_url}`;
+
+      const audio = new Audio(audioUrl);
       audio.addEventListener('loadedmetadata', () => {
         setDuration(audio.duration);
       });
@@ -1525,8 +1530,14 @@ function PodcastTab({ material, onRefetch }: { material: Material; onRefetch: ()
 
   const handleDownload = () => {
     if (!material.podcast_audio_url) return;
+
+    // Build full URL for download
+    const audioUrl = material.podcast_audio_url.startsWith('http')
+      ? material.podcast_audio_url
+      : `http://localhost:8000${material.podcast_audio_url}`;
+
     const a = document.createElement('a');
-    a.href = material.podcast_audio_url;
+    a.href = audioUrl;
     a.download = `${material.title}_podcast.mp3`;
     a.click();
   };
@@ -1539,56 +1550,31 @@ function PodcastTab({ material, onRefetch }: { material: Material; onRefetch: ()
 
   // Show audio player if podcast exists
   if (material.podcast_audio_url && material.podcast_script) {
-  return (
-      <div className="flex h-full">
-        {/* TABLE OF CONTENTS */}
-        <div className="w-80 border-r border-white/5 p-6 overflow-y-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-medium text-white/60 uppercase tracking-wider">Table of Contents</h3>
-            <button className="p-1 hover:bg-white/5 rounded">
-              <X size={16} className="text-white/40" />
-            </button>
-          </div>
+    // Calculate which script line should be shown based on time
+    // For simplicity, we'll divide total duration by number of lines
+    const currentLineIndex = material.podcast_script.length > 0 && duration > 0
+      ? Math.floor((currentTime / duration) * material.podcast_script.length)
+      : 0;
+    const currentLine = material.podcast_script[Math.min(currentLineIndex, material.podcast_script.length - 1)];
 
-          <div className="space-y-3">
-            {material.podcast_script.map((line, idx) => (
-              <div
-                key={idx}
-                className="group p-3 rounded-lg hover:bg-white/[0.02] border border-transparent hover:border-white/5 transition-all cursor-pointer"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center shrink-0 text-xs text-white/40 border border-white/5">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-primary mb-1">{line.speaker}</div>
-                    <div className="text-sm text-white/70 line-clamp-2 group-hover:text-white/90">
-                      {line.text}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* AUDIO OVERVIEW */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8">
-          <div className="w-full max-w-2xl">
+    return (
+      <div className="h-full flex flex-col overflow-y-auto scrollbar-hide">
+          {/* TOP SECTION - Icon, Title, Player */}
+          <div className="flex flex-col items-center pt-16 pb-8 px-8 border-b border-white/5">
             {/* Podcast Icon */}
-            <div className="w-40 h-40 mx-auto rounded-3xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center text-white mb-8 border border-white/10 shadow-2xl relative">
+            <div className="w-40 h-40 rounded-3xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center text-white mb-8 border border-white/10 shadow-2xl relative">
               <Headphones size={64} />
-         <div className="absolute inset-0 bg-white/5 rounded-3xl animate-pulse" />
-       </div>
+              {isPlaying && <div className="absolute inset-0 bg-white/5 rounded-3xl animate-pulse" />}
+            </div>
 
             {/* Title */}
-            <h2 className="text-2xl font-medium text-white mb-2 text-center">{material.title}</h2>
-            <p className="text-white/40 text-sm mb-12 text-center">
+            <h2 className="text-2xl font-medium text-white mb-2 text-center max-w-2xl">{material.title}</h2>
+            <p className="text-white/40 text-sm mb-10 text-center">
               Generated conversation about {material.title}
             </p>
 
             {/* Audio Player */}
-            <div className="w-full bg-white/[0.02] rounded-2xl p-6 border border-white/5">
+            <div className="w-full max-w-2xl bg-white/[0.02] rounded-2xl p-6 border border-white/5">
               {/* Progress Bar */}
               <div className="mb-6">
                 <input
@@ -1609,17 +1595,17 @@ function PodcastTab({ material, onRefetch }: { material: Material; onRefetch: ()
               <div className="flex items-center justify-center gap-6">
                 <button
                   onClick={handlePlayPause}
-                  className="w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                  className="w-16 h-16 rounded-full bg-primary text-black flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
                 >
                   {isPlaying ? (
                     <div className="flex gap-1">
-                      <div className="w-1 h-4 bg-black rounded-full" />
-                      <div className="w-1 h-4 bg-black rounded-full" />
+                      <div className="w-1.5 h-5 bg-black rounded-full" />
+                      <div className="w-1.5 h-5 bg-black rounded-full" />
                     </div>
                   ) : (
-                    <Play size={24} fill="currentColor" className="ml-1" />
+                    <Play size={28} fill="currentColor" className="ml-1" />
                   )}
-              </button>
+                </button>
 
                 <button
                   onClick={handleDownload}
@@ -1628,11 +1614,53 @@ function PodcastTab({ material, onRefetch }: { material: Material; onRefetch: ()
                 >
                   <Download size={20} />
                 </button>
-                </div>
               </div>
             </div>
+          </div>
+
+          {/* BOTTOM SECTION - Current Subtitles/Transcript */}
+          <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 min-h-[400px]">
+            <div className="w-full max-w-3xl">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentLineIndex}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center"
+                >
+                  {/* Speaker Label */}
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-sm font-medium text-primary">{currentLine?.speaker || 'Host A'}</span>
+                  </div>
+
+                  {/* Current Text */}
+                  <p className="text-3xl md:text-4xl font-light text-white leading-relaxed mb-12">
+                    {currentLine?.text || 'Starting podcast...'}
+                  </p>
+
+                  {/* Progress indicator */}
+                  <div className="flex items-center justify-center gap-2 flex-wrap max-w-xl mx-auto">
+                    {material.podcast_script.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-1 rounded-full transition-all ${
+                          idx === currentLineIndex
+                            ? 'w-8 bg-primary'
+                            : idx < currentLineIndex
+                              ? 'w-4 bg-primary/30'
+                              : 'w-2 bg-white/10'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
-         </div>
+          </div>
+      </div>
     );
   }
 

@@ -79,7 +79,7 @@ Guidelines:
         self, script: List[Dict[str, str]], storage_path: str
     ) -> str:
         """
-        Генерирует аудио для подкаста через OpenAI TTS API
+        Генерирует аудио для подкаста через ElevenLabs API
 
         Args:
             script: Скрипт подкаста [{speaker, text}, ...]
@@ -88,36 +88,49 @@ Guidelines:
         Returns:
             str: Путь к сохраненному аудио файлу
         """
+        if not self.elevenlabs_api_key:
+            raise ValueError("ELEVENLABS_API_KEY is not set")
+
         audio_buffers = []
 
-        # OpenAI TTS voices
-        # alloy, echo, fable, onyx, nova, shimmer
-        voice_a = "nova"  # Female voice for Host A
-        voice_b = "onyx"  # Male voice for Host B
-
-        for index, line in enumerate(script):
-            voice = voice_a if line["speaker"] == "Host A" else voice_b
-
-            try:
-                # Generate audio using OpenAI TTS
-                response = await self.openai_client.audio.speech.create(
-                    model="tts-1",  # Faster and cheaper than tts-1-hd
-                    voice=voice,
-                    input=line["text"],
-                    response_format="mp3"
+        async with httpx.AsyncClient() as client:
+            for index, line in enumerate(script):
+                voice_id = (
+                    self.voice_a_id if line["speaker"] == "Host A" else self.voice_b_id
                 )
 
-                # Get audio content
-                audio_content = response.content
-                audio_buffers.append(audio_content)
+                try:
+                    response = await client.post(
+                        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                        headers={
+                            "Content-Type": "application/json",
+                            "xi-api-key": self.elevenlabs_api_key,
+                        },
+                        json={
+                            "text": line["text"],
+                            "model_id": "eleven_multilingual_v2",
+                            "voice_settings": {
+                                "stability": 0.5,
+                                "similarity_boost": 0.75,
+                            },
+                        },
+                        timeout=60.0,
+                    )
 
-            except Exception as e:
-                # Если это первый сегмент и он упал, пробрасываем ошибку
-                if index == 0 and not audio_buffers:
-                    raise e
-                # Иначе продолжаем со следующим сегментом
-                print(f"Warning: Failed to generate audio for segment {index}: {e}")
-                continue
+                    if response.status_code != 200:
+                        error_text = response.text
+                        raise ValueError(
+                            f"ElevenLabs API error: {response.status_code} - {error_text}"
+                        )
+
+                    audio_buffers.append(response.content)
+
+                except Exception as e:
+                    # Если это первый сегмент и он упал, пробрасываем ошибку
+                    if index == 0 and not audio_buffers:
+                        raise e
+                    # Иначе продолжаем со следующим сегментом
+                    continue
 
         if not audio_buffers:
             raise ValueError("Failed to generate any audio segments")
