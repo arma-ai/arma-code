@@ -1,9 +1,11 @@
 """
 FastAPI Application Entry Point
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.api.v1.router import api_router
@@ -34,6 +36,11 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Mount static files for podcasts
+    storage_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage")
+    os.makedirs(storage_dir, exist_ok=True)
+    app.mount("/storage", StaticFiles(directory=storage_dir), name="storage")
 
     # Include API router
     app.include_router(api_router, prefix="/api/v1")

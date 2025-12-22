@@ -7,9 +7,10 @@ import { useCreateMaterial } from '../../hooks/useApi';
 interface UploadModalProps {
   onClose: () => void;
   onUploadStart: (type: 'PDF' | 'YouTube' | 'Link', title: string) => void;
+  onSuccess?: () => void; // Callback для обновления списка материалов
 }
 
-export function UploadModal({ onClose, onUploadStart }: UploadModalProps) {
+export function UploadModal({ onClose, onUploadStart, onSuccess }: UploadModalProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'youtube' | 'link'>('upload');
   const [dragActive, setDragActive] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -55,16 +56,17 @@ export function UploadModal({ onClose, onUploadStart }: UploadModalProps) {
 
   const handleUploadPDF = async () => {
     if (!selectedFile) return;
-    
+
     try {
       const material = await createMaterial({
         title: selectedFile.name.replace('.pdf', ''),
         material_type: 'pdf',
         file: selectedFile,
       });
-      
+
       toast.success('PDF uploaded successfully! Processing started.');
       onUploadStart('PDF', material.title);
+      onSuccess?.(); // Обновляем список материалов
       onClose();
     } catch (err) {
       toast.error('Failed to upload PDF');
@@ -73,27 +75,28 @@ export function UploadModal({ onClose, onUploadStart }: UploadModalProps) {
 
   const handleSubmitYouTube = async () => {
     if (!inputValue) return;
-    
+
     // Validate YouTube URL
     const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
     if (!youtubeRegex.test(inputValue)) {
       toast.error('Please enter a valid YouTube URL');
       return;
     }
-    
+
     try {
       // Extract video title from URL or use a default
       const videoId = inputValue.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1];
       const title = `YouTube Video ${videoId || ''}`.trim();
-      
+
       const material = await createMaterial({
         title: title,
         material_type: 'youtube',
         source: inputValue,
       });
-      
+
       toast.success('YouTube video added! Processing started.');
       onUploadStart('YouTube', material.title);
+      onSuccess?.(); // Обновляем список материалов
       onClose();
     } catch (err) {
       toast.error('Failed to add YouTube video');
@@ -102,7 +105,7 @@ export function UploadModal({ onClose, onUploadStart }: UploadModalProps) {
 
   const handleSubmitLink = async () => {
     if (!inputValue) return;
-    
+
     // Validate URL
     try {
       new URL(inputValue);
@@ -110,16 +113,17 @@ export function UploadModal({ onClose, onUploadStart }: UploadModalProps) {
       toast.error('Please enter a valid URL');
       return;
     }
-    
+
     try {
       const material = await createMaterial({
         title: 'Web Resource',
         material_type: 'pdf', // For now, treating links as PDFs - adjust based on your backend
         source: inputValue,
       });
-      
+
       toast.success('Link added! Processing started.');
       onUploadStart('Link', material.title);
+      onSuccess?.(); // Обновляем список материалов
       onClose();
     } catch (err) {
       toast.error('Failed to add link');

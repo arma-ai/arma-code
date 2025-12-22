@@ -18,20 +18,12 @@ class QuizQuestion(Base):
     option_b = Column(Text, nullable=False)
     option_c = Column(Text, nullable=False)
     option_d = Column(Text, nullable=False)
-    correct_option = Column(String(1), nullable=False)  # 'a', 'b', 'c', or 'd'
+    correct_option = Column(Text, nullable=False)  # Full text of correct answer
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     material = relationship("Material", back_populates="quiz_questions")
-
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "correct_option IN ('a', 'b', 'c', 'd')",
-            name="check_correct_option_valid"
-        ),
-    )
 
     def __repr__(self):
         return f"<QuizQuestion {self.question[:50]}...>"

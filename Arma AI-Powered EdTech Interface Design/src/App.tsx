@@ -29,6 +29,7 @@ function DashboardWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Определяем текущий view из URL
   const getCurrentView = (): ViewState => {
@@ -60,6 +61,11 @@ function DashboardWrapper() {
     console.log(`Upload started: ${type} - ${title}`);
   };
 
+  const handleUploadSuccess = () => {
+    // Триггер для обновления списка материалов во всех компонентах
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   const handleMaterialClick = (materialId: string) => {
     navigate(`/dashboard/materials/${materialId}`);
   };
@@ -73,9 +79,9 @@ function DashboardWrapper() {
         onProjectSelect={handleMaterialClick}
       >
         <Routes>
-          <Route index element={<DashboardHome onMaterialClick={handleMaterialClick} onUpload={handleUpload} />} />
-          <Route path="activity" element={<ActivityView onProjectClick={handleMaterialClick} onUpload={handleUpload} />} />
-          <Route path="library" element={<LibraryView onProjectClick={handleMaterialClick} onUpload={handleUpload} />} />
+          <Route index element={<DashboardHome key={refreshTrigger} onMaterialClick={handleMaterialClick} onUpload={handleUpload} />} />
+          <Route path="activity" element={<ActivityView key={refreshTrigger} onProjectClick={handleMaterialClick} onUpload={handleUpload} />} />
+          <Route path="library" element={<LibraryView key={refreshTrigger} onProjectClick={handleMaterialClick} onUpload={handleUpload} />} />
           <Route path="flashcards" element={<FlashcardsView />} />
           <Route path="flashcards/:deckId" element={<FlashcardsView />} />
           <Route path="languages" element={<LanguagesView />} />
@@ -88,9 +94,10 @@ function DashboardWrapper() {
       {/* Upload Modal */}
       <AnimatePresence>
         {uploadModalOpen && (
-          <UploadModal 
-            onClose={handleCloseUploadModal} 
-            onUploadStart={handleUploadStart} 
+          <UploadModal
+            onClose={handleCloseUploadModal}
+            onUploadStart={handleUploadStart}
+            onSuccess={handleUploadSuccess}
           />
         )}
       </AnimatePresence>

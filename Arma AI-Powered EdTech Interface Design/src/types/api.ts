@@ -102,7 +102,7 @@ export interface QuizQuestion {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_option: 'a' | 'b' | 'c' | 'd';
+  correct_option: string;  // Full text of correct answer
   created_at: string;
   // Helper properties for easier rendering
   options?: string[];

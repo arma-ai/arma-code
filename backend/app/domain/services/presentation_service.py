@@ -1,8 +1,7 @@
 """
 Presentation Service - генерация презентаций из материалов
 """
-import os
-from openai import OpenAI
+from openai import AsyncOpenAI
 import httpx
 
 from app.infrastructure.database.models.material import Material
@@ -13,8 +12,8 @@ class PresentationService:
     """Сервис для генерации презентаций"""
 
     def __init__(self):
-        self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.slidesgpt_api_key = os.getenv("SLIDESGPT_API_KEY", "")
+        self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.slidesgpt_api_key = settings.SLIDESGPT_API_KEY
 
     async def generate_presentation_prompt(self, material: Material, summary: str = None) -> str:
         """

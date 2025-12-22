@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 from uuid import UUID
-from typing import List, Literal
+from typing import List
 
 from app.schemas.common import BaseSchema, TimestampSchema
 
@@ -13,14 +13,7 @@ class QuizQuestionBase(BaseModel):
     option_b: str = Field(..., min_length=1)
     option_c: str = Field(..., min_length=1)
     option_d: str = Field(..., min_length=1)
-    correct_option: Literal['a', 'b', 'c', 'd']
-
-    @field_validator('correct_option')
-    @classmethod
-    def validate_correct_option(cls, v):
-        if v not in ['a', 'b', 'c', 'd']:
-            raise ValueError('correct_option must be one of: a, b, c, d')
-        return v
+    correct_option: str = Field(..., min_length=1)  # Full text of correct answer
 
 
 class QuizQuestionCreate(QuizQuestionBase):
@@ -36,7 +29,7 @@ class QuizQuestionCreate(QuizQuestionBase):
                 "option_b": "A programming language",
                 "option_c": "A framework",
                 "option_d": "A database",
-                "correct_option": "b"
+                "correct_option": "A programming language"
             }
         }
     )
@@ -71,7 +64,7 @@ class QuizQuestionResponse(TimestampSchema):
 
 class QuizQuestionWithAnswerResponse(QuizQuestionResponse):
     """Schema for quiz question response with correct answer (for admin/results)."""
-    correct_option: Literal['a', 'b', 'c', 'd']
+    correct_option: str  # Full text of correct answer
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -84,7 +77,7 @@ class QuizQuestionWithAnswerResponse(QuizQuestionResponse):
                 "option_b": "A programming language",
                 "option_c": "A framework",
                 "option_d": "A database",
-                "correct_option": "b",
+                "correct_option": "A programming language",
                 "created_at": "2024-01-01T00:00:00"
             }
         }
@@ -92,8 +85,23 @@ class QuizQuestionWithAnswerResponse(QuizQuestionResponse):
 
 
 class QuizListResponse(BaseModel):
-    """Schema for quiz question list response."""
+    """Schema for quiz question list response (without correct answers - for taking quiz)."""
     questions: List[QuizQuestionResponse]
+    total: int
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "questions": [],
+                "total": 0
+            }
+        }
+    )
+
+
+class QuizListWithAnswersResponse(BaseModel):
+    """Schema for quiz question list response WITH correct answers (for review/results)."""
+    questions: List[QuizQuestionWithAnswerResponse]
     total: int
 
     model_config = ConfigDict(
@@ -109,20 +117,13 @@ class QuizListResponse(BaseModel):
 class QuizAnswerRequest(BaseModel):
     """Schema for submitting a quiz answer."""
     question_id: UUID
-    selected_option: Literal['a', 'b', 'c', 'd']
-
-    @field_validator('selected_option')
-    @classmethod
-    def validate_selected_option(cls, v):
-        if v not in ['a', 'b', 'c', 'd']:
-            raise ValueError('selected_option must be one of: a, b, c, d')
-        return v
+    selected_option: str  # Full text of selected answer
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "question_id": "123e4567-e89b-12d3-a456-426614174000",
-                "selected_option": "b"
+                "selected_option": "A programming language"
             }
         }
     )
@@ -132,16 +133,16 @@ class QuizAnswerResponse(BaseModel):
     """Schema for quiz answer result."""
     question_id: UUID
     is_correct: bool
-    correct_option: Literal['a', 'b', 'c', 'd']
-    selected_option: Literal['a', 'b', 'c', 'd']
+    correct_option: str  # Full text of correct answer
+    selected_option: str  # Full text of selected answer
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "question_id": "123e4567-e89b-12d3-a456-426614174000",
                 "is_correct": True,
-                "correct_option": "b",
-                "selected_option": "b"
+                "correct_option": "A programming language",
+                "selected_option": "A programming language"
             }
         }
     )
@@ -189,9 +190,9 @@ class QuizAttemptResponse(BaseModel):
 class QuizAttemptAnswerDetail(BaseModel):
     """Детали одного ответа в попытке."""
     question_id: UUID
-    selected: Literal['a', 'b', 'c', 'd']
+    selected: str  # Full text of selected answer
     correct: bool
-    correct_option: Literal['a', 'b', 'c', 'd']
+    correct_option: str  # Full text of correct answer
 
 
 class QuizAttemptSaveRequest(BaseModel):
@@ -220,9 +221,9 @@ class QuizAttemptSaveRequest(BaseModel):
                 "answers": [
                     {
                         "question_id": "123e4567-e89b-12d3-a456-426614174001",
-                        "selected": "b",
+                        "selected": "A programming language",
                         "correct": True,
-                        "correct_option": "b"
+                        "correct_option": "A programming language"
                     }
                 ]
             }

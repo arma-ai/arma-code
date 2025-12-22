@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Play, MoreHorizontal, Settings, Clock, Shuffle, Volume2, RotateCw, Check, X, Bookmark, Edit3, Plus, Layers, Grid, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2, FileText, Youtube } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,15 +7,21 @@ import { useMaterials, useFlashcards } from '../../hooks/useApi';
 import type { Material, Flashcard } from '../../types/api';
 
 export function FlashcardsView({ initialMaterialId }: { initialMaterialId?: string | null }) {
+  const { deckId } = useParams<{ deckId: string }>();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'home' | 'player' | 'deck-detail'>('home');
   const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialMaterialId) {
+    // Если есть deckId в URL, используем его для запуска player mode
+    if (deckId) {
+      setActiveMaterialId(deckId);
+      setViewMode('player');
+    } else if (initialMaterialId) {
       setActiveMaterialId(initialMaterialId);
       setViewMode('player');
     }
-  }, [initialMaterialId]);
+  }, [deckId, initialMaterialId]);
 
   const handleMaterialClick = (id: string) => {
     setActiveMaterialId(id);
@@ -25,6 +32,15 @@ export function FlashcardsView({ initialMaterialId }: { initialMaterialId?: stri
     setViewMode('player');
   };
 
+  const handleBackFromPlayer = () => {
+    // Если пришли через URL (deckId), возвращаемся на страницу материала
+    if (deckId) {
+      navigate(`/dashboard/materials/${deckId}`);
+    } else {
+      setViewMode('deck-detail');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#0C0C0F] relative overflow-hidden">
       {viewMode === 'home' && <FlashcardsHome onMaterialClick={handleMaterialClick} />}
@@ -32,7 +48,7 @@ export function FlashcardsView({ initialMaterialId }: { initialMaterialId?: stri
         <DeckDetail materialId={activeMaterialId} onBack={() => setViewMode('home')} onStart={handleStartStudy} />
       )}
       {viewMode === 'player' && activeMaterialId && (
-        <FlashcardsPlayer materialId={activeMaterialId} onBack={() => setViewMode('deck-detail')} />
+        <FlashcardsPlayer materialId={activeMaterialId} onBack={handleBackFromPlayer} />
       )}
     </div>
   );
@@ -198,31 +214,14 @@ function DeckDetail({ materialId, onBack, onStart }: { materialId: string, onBac
 }
 
 function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: () => void }) {
-  const { material } = useMaterials().materials.find(m => m.id === materialId) ? { material: useMaterials().materials.find(m => m.id === materialId)! } : { material: null };
+  const { materials } = useMaterials();
+  const material = materials.find(m => m.id === materialId) || null;
   const { flashcards, loading } = useFlashcards(materialId);
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0); // 1 = right, -1 = left
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (!material || flashcards.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <p className="text-white/40 mb-4">No flashcards available</p>
-        <button onClick={onBack} className="px-4 py-2 bg-white/5 text-white rounded-lg">
-          Go Back
-        </button>
-      </div>
-    );
-  }
-
+  // Переменные для использования в хуках (определяем до хуков)
   const currentCard = flashcards[currentIndex];
   const progress = Math.min(((currentIndex + 1) / flashcards.length) * 100, 100);
 
@@ -241,7 +240,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
     }, 280);
   };
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - ДОЛЖЕН быть ДО условных returns
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (currentIndex >= flashcards.length) return;
@@ -254,6 +253,26 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, flashcards.length]);
+
+  // Теперь можно делать условные returns
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!material || flashcards.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <p className="text-white/40 mb-4">No flashcards available</p>
+        <button onClick={onBack} className="px-4 py-2 bg-white/5 text-white rounded-lg">
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   if (currentIndex >= flashcards.length) {
       return (
@@ -319,14 +338,13 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                         className="absolute inset-0 cursor-pointer"
                         style={{ zIndex: 30 - card.offset }}
                         initial={{ scale: 1 - card.offset * 0.05, y: card.offset * 12, opacity: 1 - card.offset * 0.3 }}
-                        animate={{ 
-                            scale: 1 - card.offset * 0.05, 
-                            y: card.offset * 12, 
+                        animate={{
+                            scale: 1 - card.offset * 0.05,
+                            y: card.offset * 12,
                             opacity: 1 - card.offset * 0.3,
                             x: isTop ? (direction === 1 ? direction * 50 : direction * 50) : 0,
                             y: isTop ? (direction !== 0 ? 50 : card.offset * 12) : card.offset * 12,
-                            rotate: isTop ? direction * 5 : 0,
-                            rotateY: (isTop && isFlipped) ? 180 : 0
+                            rotate: isTop ? direction * 5 : 0
                         }}
                         exit={{ 
                            x: direction * 500, 
@@ -337,10 +355,22 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         onClick={() => isTop && setIsFlipped(!isFlipped)}
                     >
-                         {/* Card Content Wrapper to handle Flip */}
-                         <div className="w-full h-full relative transition-all duration-500" style={{ transformStyle: 'preserve-3d' }}>
-                             {/* FRONT */}
-                             <div className="absolute inset-0 backface-hidden bg-[#1A1A1E] border border-white/10 rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 md:p-12 text-center hover:border-white/20 transition-colors">
+                         {/* Card Content Wrapper to handle Flip with 3D animation */}
+                         <div
+                           className="w-full h-full relative transition-transform duration-500"
+                           style={{
+                             transformStyle: 'preserve-3d',
+                             transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                           }}
+                         >
+                             {/* FRONT - Question */}
+                             <div
+                               className="absolute inset-0 bg-[#1A1A1E] border border-white/10 rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 md:p-12 text-center hover:border-white/20 transition-colors"
+                               style={{
+                                 backfaceVisibility: 'hidden',
+                                 WebkitBackfaceVisibility: 'hidden'
+                               }}
+                             >
                                 <div className="absolute top-6 left-6 text-xs text-white/20 font-mono tracking-widest uppercase">Question</div>
                                 <h3 className="text-xl md:text-3xl font-medium text-white leading-tight select-none">
                                   {card.question}
@@ -348,10 +378,14 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                                 {isTop && <div className="absolute bottom-6 text-xs text-white/20 animate-pulse">Tap to Flip</div>}
                              </div>
 
-                             {/* BACK */}
+                             {/* BACK - Answer */}
                              <div
-                               className="absolute inset-0 backface-hidden bg-[#151518] border border-primary/20 rounded-2xl shadow-[0_0_50px_rgba(255,138,61,0.1)] flex flex-col items-start text-left p-8 md:p-12 overflow-y-auto"
-                               style={{ transform: 'rotateY(180deg)' }}
+                               className="absolute inset-0 bg-[#151518] border border-primary/20 rounded-2xl shadow-[0_0_50px_rgba(255,138,61,0.1)] flex flex-col items-start text-left p-8 md:p-12 overflow-y-auto"
+                               style={{
+                                 backfaceVisibility: 'hidden',
+                                 WebkitBackfaceVisibility: 'hidden',
+                                 transform: 'rotateY(180deg)'
+                               }}
                              >
                                 <div className="absolute top-6 left-6 text-xs text-primary/50 font-mono tracking-widest uppercase">Answer</div>
                                 <div className="absolute top-6 right-6 flex gap-3">

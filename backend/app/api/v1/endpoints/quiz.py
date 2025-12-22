@@ -12,7 +12,9 @@ from app.infrastructure.database.models.quiz import QuizQuestion
 from app.schemas.quiz import (
     QuizQuestionCreate,
     QuizQuestionResponse,
+    QuizQuestionWithAnswerResponse,
     QuizListResponse,
+    QuizListWithAnswersResponse,
     QuizAnswerRequest,
     QuizAnswerResponse,
     QuizAttemptRequest,
@@ -27,14 +29,14 @@ from app.schemas.common import MessageResponse
 router = APIRouter()
 
 
-@router.get("/materials/{material_id}/quiz", response_model=QuizListResponse)
+@router.get("/materials/{material_id}/quiz", response_model=QuizListWithAnswersResponse)
 async def get_quiz_questions(
     material_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Get all quiz questions for a material.
+    Get all quiz questions for a material with correct answers.
 
     Args:
         material_id: Material ID
@@ -42,7 +44,7 @@ async def get_quiz_questions(
         current_user: Current authenticated user
 
     Returns:
-        QuizListResponse: List of quiz questions (without correct answers)
+        QuizListWithAnswersResponse: List of quiz questions with correct answers
 
     Raises:
         HTTPException: If material not found or access denied

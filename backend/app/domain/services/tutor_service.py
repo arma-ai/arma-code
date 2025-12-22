@@ -86,9 +86,12 @@ class TutorService:
 
             # 2. Выполнить vector similarity search
             # Используем pgvector cosine similarity (оператор <=>)
+            # Форматируем embedding как строку для PostgreSQL
+            embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+            
             search_query = text("""
                 SELECT chunk_text, chunk_index,
-                       (embedding <=> :query_embedding::vector) AS distance
+                       (embedding <=> :query_embedding) AS distance
                 FROM material_embeddings
                 WHERE material_id = :material_id
                 ORDER BY distance ASC
@@ -98,7 +101,7 @@ class TutorService:
             result = await self.session.execute(
                 search_query,
                 {
-                    "query_embedding": query_embedding,
+                    "query_embedding": embedding_str,
                     "material_id": str(material_id),
                     "top_k": top_k,
                 },

@@ -83,6 +83,13 @@ class MaterialResponse(TimestampSchema):
     file_name: Optional[str] = None
     file_size: Optional[int] = None
     source: Optional[str] = None
+    # Podcast fields
+    podcast_script: Optional[List[Dict[str, str]]] = None
+    podcast_audio_url: Optional[str] = None
+    # Presentation fields
+    presentation_status: Optional[str] = None
+    presentation_url: Optional[str] = None
+    presentation_embed_url: Optional[str] = None
     updated_at: datetime
 
     model_config = ConfigDict(

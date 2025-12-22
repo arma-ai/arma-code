@@ -65,8 +65,8 @@ class Material(Base):
 
     # Presentation
     presentation_status = Column(String(50), nullable=True)  # 'generating', 'completed', 'failed'
-    presentation_url = Column(String(500), nullable=True)  # Download URL
-    presentation_embed_url = Column(String(500), nullable=True)  # Embed URL for preview
+    presentation_url = Column(String(2000), nullable=True)  # Download URL (long JWT tokens)
+    presentation_embed_url = Column(String(2000), nullable=True)  # Embed URL for preview (long JWT tokens)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

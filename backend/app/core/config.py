@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = ""
 
+    # SlidesGPT (Presentation Generation)
+    SLIDESGPT_API_KEY: str = ""
+
     # Tavily (Web Search)
     TAVILY_API_KEY: str = "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"
 

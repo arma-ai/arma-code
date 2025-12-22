@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, FileText, Youtube, Globe, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import type { SearchResult, SearchResultType } from '../../types/api';
 
@@ -22,12 +22,17 @@ export function SearchResultsModal({
   const [activeTab, setActiveTab] = useState<SearchResultType | 'all'>('all');
   const [addingId, setAddingId] = useState<string | null>(null);
 
-  // Filter results by type
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   const filteredResults = activeTab === 'all' 
     ? results 
     : results.filter(r => r.type === activeTab);
 
-  // Count results by type
   const pdfCount = results.filter(r => r.type === 'pdf').length;
   const youtubeCount = results.filter(r => r.type === 'youtube').length;
   const articleCount = results.filter(r => r.type === 'article').length;
@@ -58,188 +63,370 @@ export function SearchResultsModal({
   const getTypeLabel = (type: SearchResultType) => {
     switch (type) {
       case 'pdf': return 'PDF';
-      case 'youtube': return 'Video';
-      case 'article': return 'Article';
+      case 'youtube': return 'VIDEO';
+      case 'article': return 'ARTICLE';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-3xl max-h-[80vh] bg-[#121215] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+    <>
+      {/* Backdrop - separate layer */}
+      <div 
+        style={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 99998
+        }}
+        onClick={onClose}
+      />
+      
+      {/* Modal Container */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem',
+          zIndex: 99999,
+          pointerEvents: 'none'
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Search size={16} className="text-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-medium text-white">Search Results</h2>
-              <p className="text-xs text-white/40">"{query}"</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-white/50 hover:text-white transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="px-4 pt-4">
-          <div className="flex gap-2 bg-white/5 p-1 rounded-lg">
-            <button 
-              onClick={() => setActiveTab('all')}
-              className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${activeTab === 'all' ? 'bg-primary text-black' : 'text-white/60 hover:text-white'}`}
-            >
-              All ({results.length})
-            </button>
-            <button 
-              onClick={() => setActiveTab('pdf')}
-              className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'pdf' ? 'bg-primary text-black' : 'text-white/60 hover:text-white'}`}
-            >
-              <FileText size={12} /> PDF ({pdfCount})
-            </button>
-            <button 
-              onClick={() => setActiveTab('youtube')}
-              className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'youtube' ? 'bg-primary text-black' : 'text-white/60 hover:text-white'}`}
-            >
-              <Youtube size={12} /> Video ({youtubeCount})
-            </button>
-            <button 
-              onClick={() => setActiveTab('article')}
-              className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'article' ? 'bg-primary text-black' : 'text-white/60 hover:text-white'}`}
-            >
-              <Globe size={12} /> Articles ({articleCount})
-            </button>
-          </div>
-        </div>
-
-        {/* Results List */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-              <p className="text-white/80 font-medium">Searching the web...</p>
-              <p className="text-white/40 text-sm">Finding PDFs, videos, and articles</p>
-            </div>
-          ) : filteredResults.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <Search size={24} className="text-white/20" />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: '100%',
+            maxWidth: '48rem',
+            maxHeight: '80vh',
+            backgroundColor: '#0D0D0F',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '1rem',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            pointerEvents: 'auto'
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            backgroundColor: '#0D0D0F',
+            flexShrink: 0
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                width: '2.5rem',
+                height: '2.5rem',
+                borderRadius: '0.75rem',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Search size={18} style={{ color: '#f97316' }} />
               </div>
-              <p className="text-white/60 font-medium mb-1">No results found</p>
-              <p className="text-white/40 text-sm">Try a different search term</p>
+              <div>
+                <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'white', margin: 0 }}>Search Results</h2>
+                <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', margin: 0 }}>"{query}"</p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredResults.map((result, index) => (
-                <motion.div
-                  key={result.url}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="group relative p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all"
+            <button 
+              onClick={onClose} 
+              style={{
+                padding: '0.5rem',
+                color: 'rgba(255, 255, 255, 0.5)',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div style={{
+            padding: '1rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            backgroundColor: '#0D0D0F',
+            flexShrink: 0
+          }}>
+            <div style={{
+              display: 'flex',
+              gap: '0.25rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              padding: '0.25rem',
+              borderRadius: '0.75rem'
+            }}>
+              {[
+                { key: 'all', label: `All (${results.length})`, icon: null },
+                { key: 'pdf', label: `PDF (${pdfCount})`, icon: <FileText size={12} /> },
+                { key: 'youtube', label: `Video (${youtubeCount})`, icon: <Youtube size={12} /> },
+                { key: 'article', label: `Articles (${articleCount})`, icon: <Globe size={12} /> }
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as SearchResultType | 'all')}
+                  style={{
+                    flex: 1,
+                    padding: '0.625rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    borderRadius: '0.5rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.375rem',
+                    backgroundColor: activeTab === tab.key ? '#f97316' : 'transparent',
+                    color: activeTab === tab.key ? 'black' : 'rgba(255, 255, 255, 0.6)',
+                    transition: 'all 0.2s'
+                  }}
                 >
-                  <div className="flex gap-4">
-                    {/* Thumbnail */}
-                    {result.thumbnail_url ? (
-                      <div className="w-24 h-16 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
-                        <img 
-                          src={result.thumbnail_url} 
-                          alt={result.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className={`w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        result.type === 'pdf' ? 'bg-blue-500/10' :
-                        result.type === 'youtube' ? 'bg-red-500/10' :
-                        'bg-emerald-500/10'
-                      }`}>
-                        {getTypeIcon(result.type)}
-                      </div>
-                    )}
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="text-sm font-medium text-white/90 line-clamp-1 group-hover:text-white transition-colors">
-                          {result.title}
-                        </h3>
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex-shrink-0 ${
-                          result.type === 'pdf' ? 'bg-blue-500/10 text-blue-400' :
-                          result.type === 'youtube' ? 'bg-red-500/10 text-red-400' :
-                          'bg-emerald-500/10 text-emerald-400'
-                        }`}>
-                          {getTypeLabel(result.type)}
-                        </span>
-                      </div>
-
-                      {result.description && (
-                        <p className="text-xs text-white/40 line-clamp-2 mb-2">
-                          {result.description}
-                        </p>
+          {/* Results List */}
+          <div style={{
+            padding: '1rem',
+            flex: 1,
+            overflowY: 'auto',
+            backgroundColor: '#0A0A0C'
+          }}>
+            {loading ? (
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                padding: '4rem 0',
+                textAlign: 'center'
+              }}>
+                <Loader2 style={{ width: '2.5rem', height: '2.5rem', color: '#f97316' }} className="animate-spin" />
+                <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 500, marginTop: '1rem' }}>Searching the web...</p>
+                <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.875rem' }}>Finding PDFs, videos, and articles</p>
+              </div>
+            ) : filteredResults.length === 0 ? (
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                padding: '4rem 0',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  width: '4rem',
+                  height: '4rem',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '1rem'
+                }}>
+                  <Search size={24} style={{ color: 'rgba(255, 255, 255, 0.2)' }} />
+                </div>
+                <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontWeight: 500 }}>No results found</p>
+                <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.875rem' }}>Try a different search term</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {filteredResults.map((result, index) => (
+                  <motion.div
+                    key={result.url}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                    style={{
+                      padding: '1rem',
+                      borderRadius: '0.75rem',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.02)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      {/* Thumbnail */}
+                      {result.thumbnail_url ? (
+                        <div style={{
+                          width: '7rem',
+                          height: '5rem',
+                          borderRadius: '0.5rem',
+                          overflow: 'hidden',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          flexShrink: 0
+                        }}>
+                          <img 
+                            src={result.thumbnail_url} 
+                            alt={result.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{
+                          width: '5rem',
+                          height: '5rem',
+                          borderRadius: '0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          backgroundColor: result.type === 'pdf' ? 'rgba(59, 130, 246, 0.1)' :
+                            result.type === 'youtube' ? 'rgba(239, 68, 68, 0.1)' :
+                            'rgba(16, 185, 129, 0.1)'
+                        }}>
+                          {getTypeIcon(result.type)}
+                        </div>
                       )}
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-white/30">
-                          {result.source && <span>{result.source}</span>}
-                          {result.published_date && (
-                            <>
-                              <span>•</span>
-                              <span>{result.published_date}</span>
-                            </>
-                          )}
+                      {/* Content */}
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                          <h3 style={{
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            color: 'rgba(255, 255, 255, 0.9)',
+                            margin: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}>
+                            {result.title}
+                          </h3>
+                          <span style={{
+                            fontSize: '0.625rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.375rem',
+                            flexShrink: 0,
+                            backgroundColor: result.type === 'pdf' ? 'rgba(59, 130, 246, 0.2)' :
+                              result.type === 'youtube' ? 'rgba(239, 68, 68, 0.2)' :
+                              'rgba(16, 185, 129, 0.2)',
+                            color: result.type === 'pdf' ? '#60a5fa' :
+                              result.type === 'youtube' ? '#f87171' :
+                              '#34d399'
+                          }}>
+                            {getTypeLabel(result.type)}
+                          </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={result.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-                            title="Open in new tab"
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                          <button
-                            onClick={() => handleAddResult(result)}
-                            disabled={addingId === result.url}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors text-xs font-medium"
-                          >
-                            {addingId === result.url ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <Plus size={12} />
-                            )}
-                            Add
-                          </button>
+                        {result.description && (
+                          <p style={{
+                            fontSize: '0.75rem',
+                            color: 'rgba(255, 255, 255, 0.4)',
+                            margin: '0 0 0.5rem 0',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            flex: 1
+                          }}>
+                            {result.description}
+                          </p>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.3)' }}>
+                            {result.source}
+                          </span>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <a
+                              href={result.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                padding: '0.5rem',
+                                borderRadius: '0.5rem',
+                                color: 'rgba(255, 255, 255, 0.4)',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex'
+                              }}
+                              title="Open in new tab"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                            <button
+                              onClick={() => handleAddResult(result)}
+                              disabled={addingId === result.url}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '0.5rem',
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                color: '#f97316',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                opacity: addingId === result.url ? 0.5 : 1
+                              }}
+                            >
+                              {addingId === result.url ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Plus size={12} />
+                              )}
+                              Add
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {!loading && filteredResults.length > 0 && (
+            <div style={{
+              padding: '0.75rem 1rem',
+              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+              backgroundColor: '#0D0D0F',
+              flexShrink: 0
+            }}>
+              <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', margin: 0 }}>
+                Click "Add" to import a resource into your learning materials
+              </p>
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        {!loading && filteredResults.length > 0 && (
-          <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02]">
-            <p className="text-xs text-white/30 text-center">
-              Click "Add" to import a resource into your learning materials
-            </p>
-          </div>
-        )}
-      </motion.div>
-    </div>
+        </motion.div>
+      </div>
+    </>
   );
 }
-

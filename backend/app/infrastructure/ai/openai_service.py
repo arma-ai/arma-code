@@ -186,7 +186,7 @@ class OpenAIService:
                             "You are an expert at creating educational quiz questions. "
                             "Generate questions in JSON format with 'questions' array. "
                             "Each question must have: question (text), option_a, option_b, option_c, option_d (all text), "
-                            "and correct_option (one of: 'a', 'b', 'c', 'd'). "
+                            "and correct_option (the FULL TEXT of the correct answer, copied exactly from one of the options). "
                             f"Create exactly {count} questions. "
                             "The questions and answers MUST be in the SAME LANGUAGE as the source text. "
                             "Return only valid JSON, no additional text."
@@ -211,7 +211,15 @@ class OpenAIService:
             validated = []
             for q in questions:
                 if all(k in q for k in ["question", "option_a", "option_b", "option_c", "option_d", "correct_option"]):
-                    if q["correct_option"] in ["a", "b", "c", "d"]:
+                    # correct_option should be the full text matching one of the options
+                    correct = q["correct_option"]
+                    options = [q["option_a"], q["option_b"], q["option_c"], q["option_d"]]
+                    # If AI returned a letter, convert to text
+                    if correct in ["a", "b", "c", "d"]:
+                        option_map = {"a": q["option_a"], "b": q["option_b"], "c": q["option_c"], "d": q["option_d"]}
+                        q["correct_option"] = option_map[correct]
+                    # Validate that correct_option matches one of the options
+                    if q["correct_option"] in options:
                         validated.append(q)
 
             logger.info(f"[OpenAI] Generated {len(validated)} quiz questions")

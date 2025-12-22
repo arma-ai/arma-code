@@ -1,6 +1,9 @@
 """Material management endpoints."""
 
 import logging
+import httpx
+import tempfile
+import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,14 +94,14 @@ async def create_material(
     """
     Create a new material.
 
-    For PDF: Upload file via multipart/form-data
+    For PDF: Upload file via multipart/form-data OR provide URL to download
     For YouTube: Provide source URL
 
     Args:
         title: Material title
         material_type: Type of material (pdf or youtube)
-        source: YouTube URL (required for youtube type)
-        file: PDF file (required for pdf type)
+        source: URL (required for youtube type, optional for pdf to download from URL)
+        file: PDF file (optional if source URL is provided for pdf type)
         db: Database session
         current_user: Current authenticated user
 
@@ -108,39 +111,97 @@ async def create_material(
     Raises:
         HTTPException: If validation fails
     """
+    file_path = None
+    file_size = None
+    file_name = None
+    
     # Validate based on type
     if material_type == MaterialType.PDF:
-        if not file:
+        # Either file or source URL is required for PDF
+        if not file and not source:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File is required for PDF type"
+                detail="Either file or source URL is required for PDF type"
             )
-        if not file.filename.endswith('.pdf'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF files are allowed"
-            )
+        
+        if file:
+            # File upload
+            if not file.filename.endswith('.pdf'):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Only PDF files are allowed"
+                )
 
-        # Save file to filesystem
-        try:
-            file_path, file_size = file_storage.save_uploaded_file(
-                file, str(current_user.id), file.filename
-            )
-            logger.info(f"Saved PDF file: {file_path}, size: {file_size} bytes")
-        except Exception as e:
-            logger.error(f"Failed to save PDF file: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to save file: {str(e)}"
-            )
+            # Save file to filesystem
+            try:
+                file_path, file_size = file_storage.save_uploaded_file(
+                    file, str(current_user.id), file.filename
+                )
+                file_name = file.filename
+                logger.info(f"Saved PDF file: {file_path}, size: {file_size} bytes")
+            except Exception as e:
+                logger.error(f"Failed to save PDF file: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to save file: {str(e)}"
+                )
+        else:
+            # Download PDF from URL
+            logger.info(f"Downloading PDF from URL: {source}")
+            try:
+                async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+                    response = await client.get(source, headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    })
+                    response.raise_for_status()
+                    
+                    # Get filename from URL or content-disposition header
+                    content_disposition = response.headers.get("content-disposition", "")
+                    if "filename=" in content_disposition:
+                        file_name = content_disposition.split("filename=")[-1].strip('"\'')
+                    else:
+                        # Extract from URL
+                        from urllib.parse import urlparse, unquote
+                        url_path = urlparse(source).path
+                        file_name = unquote(url_path.split("/")[-1])
+                        if not file_name.endswith('.pdf'):
+                            file_name = f"{title[:50].replace(' ', '_')}.pdf"
+                    
+                    # Save to temp file first
+                    pdf_content = response.content
+                    file_size = len(pdf_content)
+                    
+                    # Save using file storage
+                    user_dir = f"storage/materials/{current_user.id}"
+                    os.makedirs(user_dir, exist_ok=True)
+                    file_path = os.path.join(user_dir, file_name)
+                    
+                    with open(file_path, "wb") as f:
+                        f.write(pdf_content)
+                    
+                    logger.info(f"Downloaded PDF: {file_path}, size: {file_size} bytes")
+                    
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Failed to download PDF: HTTP {e.response.status_code}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to download PDF: HTTP {e.response.status_code}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to download PDF: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to download PDF: {str(e)}"
+                )
 
         new_material = Material(
             user_id=current_user.id,
             title=title,
             type=material_type,
             file_path=file_path,
-            file_name=file.filename,
+            file_name=file_name,
             file_size=file_size,
+            source=source,  # Store original URL
             processing_status=ProcessingStatus.PROCESSING
         )
 
@@ -720,21 +781,28 @@ async def generate_podcast_audio(
     try:
         podcast_service = PodcastService()
 
-        # Путь для сохранения аудио
+        # Генерируем имя файла
         import time
-        storage_path = f"storage/podcasts/{current_user.id}/{material_id}_{int(time.time())}.mp3"
+        timestamp = int(time.time())
+        filename = f"{material_id}_{timestamp}.mp3"
+
+        # Путь для сохранения аудио (локальный)
+        storage_path = f"storage/podcasts/{current_user.id}/{filename}"
 
         # Генерируем аудио
-        audio_path = await podcast_service.generate_podcast_audio(
+        await podcast_service.generate_podcast_audio(
             material.podcast_script,
             storage_path
         )
 
-        # Сохраняем путь в БД
-        material.podcast_audio_url = audio_path
+        # URL для доступа к аудио (для фронтенда)
+        audio_url = f"/storage/podcasts/{current_user.id}/{filename}"
+
+        # Сохраняем URL в БД
+        material.podcast_audio_url = audio_url
         await db.commit()
 
-        return {"podcast_audio_url": audio_path}
+        return {"podcast_audio_url": audio_url}
 
     except Exception as e:
         logger.error(f"Failed to generate podcast audio: {str(e)}")

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   materialsApi,
   flashcardsApi,
@@ -16,15 +16,18 @@ import type {
 
 /**
  * Hook для загрузки списка материалов
+ * Автоматически обновляет данные каждые 3 секунды если есть материалы в обработке
  */
 export function useMaterials() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMaterials = async () => {
+  const fetchMaterials = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       setError(null);
       const data = await materialsApi.list();
       setMaterials(data);
@@ -32,13 +35,41 @@ export function useMaterials() {
       setError(err.response?.data?.detail || 'Failed to load materials');
       console.error('Error fetching materials:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchMaterials();
   }, []);
+
+  // Создаем стабильный ключ для отслеживания изменений статусов
+  const processingKey = useMemo(
+    () => materials.map(m => `${m.id}-${m.processing_status}`).join(','),
+    [materials]
+  );
+
+  // Автоматическое обновление для материалов в обработке
+  useEffect(() => {
+    // Проверяем есть ли материалы со статусом 'processing'
+    const hasProcessingMaterials = materials.some(
+      m => m.processing_status === 'processing'
+    );
+
+    if (!hasProcessingMaterials) {
+      return;
+    }
+
+    // Устанавливаем интервал обновления каждые 3 секунды
+    const intervalId = setInterval(() => {
+      fetchMaterials(false); // false = не показывать лоадер при обновлении
+    }, 3000);
+
+    // Очищаем интервал при размонтировании или если нет больше обрабатывающихся материалов
+    return () => clearInterval(intervalId);
+  }, [processingKey]);
 
   return { materials, loading, error, refetch: fetchMaterials };
 }

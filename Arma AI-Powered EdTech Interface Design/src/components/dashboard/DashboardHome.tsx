@@ -51,22 +51,26 @@ export function DashboardHome({ onMaterialClick, onUpload }: DashboardHomeProps)
     try {
       // Determine material type based on result type
       const materialType = result.type === 'youtube' ? 'youtube' : 'pdf';
-      
+
       // Create material from search result
-      await materialsApi.create({
+      const material = await materialsApi.create({
         title: result.title,
         material_type: materialType,
         source: result.url
       });
 
-      // Refresh materials list
+      // Refresh materials list immediately
       await refetch();
-      
+
       // Close modal
       setIsSearchModalOpen(false);
       setInputValue('');
+
+      // Show success message
+      toast.success(`Added "${material.title}" successfully!`);
     } catch (error) {
       console.error('Error adding material:', error);
+      toast.error('Failed to add material');
       throw error;
     }
   };
