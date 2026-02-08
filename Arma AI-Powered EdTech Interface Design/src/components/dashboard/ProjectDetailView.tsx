@@ -5,7 +5,8 @@ import {
   ArrowLeft, FileText, Youtube, MessageSquare, Brain, CheckCircle2,
   Headphones, MonitorPlay, ChevronRight, Play, MoreHorizontal,
   Sparkles, Check, Clock, Calendar, Download, Share2, Layers, Search,
-  Menu, Link as LinkIcon, Volume2, Bookmark, Edit3, X, RotateCw, Shuffle, Archive, Loader2
+  Menu, Link as LinkIcon, Volume2, Bookmark, Edit3, X, RotateCw, Shuffle, Archive, Loader2,
+  AlertCircle, RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -213,19 +214,27 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
                 <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold border ${
                   material.processing_status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                   material.processing_status === 'processing' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                  material.processing_status === 'failed' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                   'bg-blue-500/10 border-blue-500/20 text-blue-400'
                 }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${
                     material.processing_status === 'completed' ? 'bg-emerald-400' :
                     material.processing_status === 'processing' ? 'bg-amber-400 animate-pulse' :
+                    material.processing_status === 'failed' ? 'bg-red-400' :
                     'bg-blue-400'
                   }`} />
-                  {material.processing_status.toUpperCase()}
+                  {material.processing_status === 'failed' ? 'ERROR' : material.processing_status.toUpperCase()}
                 </div>
               </div>
 
+              {/* Retry Button for failed or stuck materials */}
+              <RetryButton
+                material={material}
+                onRetrySuccess={refetchMaterial}
+              />
+
               {/* Processing Progress */}
-              {material.processing_status === 'processing' && (
+              {material.processing_status === 'processing' && material.processing_progress > 0 && (
                 <div>
                   <label className="text-[10px] text-white/30 uppercase tracking-wider mb-2 block">Progress</label>
                   <div className="space-y-2">
@@ -285,6 +294,66 @@ function ActionButton({ icon, label, onClick }: { icon: React.ReactNode, label: 
        {icon}
        {label}
     </button>
+  );
+}
+
+// Retry button component for failed/stuck materials
+function RetryButton({ material, onRetrySuccess }: { material: Material; onRetrySuccess: () => Promise<void> | void }) {
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  // Check if material needs retry
+  const needsRetry = material.processing_status === 'failed' ||
+    (material.processing_status === 'processing' && material.processing_progress === 0);
+
+  if (!needsRetry) return null;
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await materialsApi.retry(material.id);
+      toast.success('Processing restarted');
+      await onRetrySuccess();
+    } catch (error) {
+      console.error('Error retrying material:', error);
+      toast.error('Failed to restart processing');
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  return (
+    <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+      <div className="flex items-start gap-3 mb-3">
+        <AlertCircle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-red-400 mb-1">
+            {material.processing_status === 'failed' ? 'Processing Failed' : 'Processing Stuck'}
+          </p>
+          <p className="text-xs text-white/40">
+            {material.processing_status === 'failed'
+              ? 'An error occurred while processing this material.'
+              : 'Processing appears to be stuck at 0%. Try restarting.'}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={handleRetry}
+        disabled={isRetrying}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+      >
+        {isRetrying ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            Retrying...
+          </>
+        ) : (
+          <>
+            <RotateCcw size={16} />
+            Retry Processing
+          </>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -1494,11 +1563,11 @@ function PodcastTab({ material, onRefetch }: { material: Material; onRefetch: ()
 
       // First generate script
       const scriptResponse = await materialsApi.generatePodcastScript(material.id);
-      toast.success('Script generated! Now generating audio...');
+      toast.success('Script generated! Now generating audio with Edge TTS...');
 
-      // Then generate audio
-      await materialsApi.generatePodcastAudio(material.id);
-      toast.success('Podcast generated successfully!');
+      // Then generate audio using Edge TTS (free, high-quality Microsoft TTS)
+      const audioResponse = await materialsApi.generatePodcastAudio(material.id, 'edge');
+      toast.success(`Podcast generated successfully using ${audioResponse.provider}!`);
 
       // Refresh material data and wait for it
       await onRefetch();

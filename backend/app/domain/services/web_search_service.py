@@ -2,17 +2,22 @@
 Web Search Service using Tavily API.
 Searches for educational materials: PDFs, YouTube videos, and articles.
 """
+import asyncio
 import logging
 import re
-from typing import List, Optional
+from typing import Callable, List, Optional
 from urllib.parse import urlparse
 
+import httpx
 from tavily import TavilyClient
 
 from app.core.config import settings
 from app.schemas.search import SearchResult, SearchResultType
 
 logger = logging.getLogger(__name__)
+
+# Multiplier for fetching extra results to filter
+VALIDATION_FETCH_MULTIPLIER = 3
 
 
 class WebSearchService:
@@ -62,14 +67,17 @@ class WebSearchService:
             raise
 
     async def _search_pdfs(self, query: str, limit: int) -> List[SearchResult]:
-        """Search for PDF documents."""
+        """Search for PDF documents with accessibility validation."""
         try:
+            # Fetch more results to account for inaccessible URLs
+            fetch_limit = limit * VALIDATION_FETCH_MULTIPLIER
+
             # Search specifically for PDFs
             search_query = f"{query} filetype:pdf"
             response = self.client.search(
                 query=search_query,
                 search_depth="advanced",
-                max_results=limit,
+                max_results=fetch_limit,
                 include_domains=["arxiv.org", "researchgate.net", "academia.edu", "springer.com", "ieee.org"]
             )
 
@@ -87,22 +95,33 @@ class WebSearchService:
                         published_date=item.get("published_date")
                     ))
 
-            logger.info(f"[WebSearch] Found {len(results)} PDF results")
-            return results[:limit]
+            logger.info(f"[WebSearch] Found {len(results)} PDF results, validating accessibility...")
+
+            # Validate URLs and filter inaccessible ones
+            validated_results = await self._filter_accessible_results(
+                results,
+                self._validate_pdf_url,
+                limit
+            )
+
+            return validated_results
 
         except Exception as e:
             logger.error(f"[WebSearch] Error searching PDFs: {str(e)}")
             return []
 
     async def _search_youtube(self, query: str, limit: int) -> List[SearchResult]:
-        """Search for YouTube videos."""
+        """Search for YouTube videos with accessibility validation."""
         try:
+            # Fetch more results to account for inaccessible videos
+            fetch_limit = limit * VALIDATION_FETCH_MULTIPLIER
+
             # Search specifically for YouTube videos
             search_query = f"{query} site:youtube.com"
             response = self.client.search(
                 query=search_query,
                 search_depth="basic",
-                max_results=limit * 2,  # Get more to filter
+                max_results=fetch_limit,
                 include_domains=["youtube.com", "youtu.be"]
             )
 
@@ -125,8 +144,16 @@ class WebSearchService:
                         published_date=item.get("published_date")
                     ))
 
-            logger.info(f"[WebSearch] Found {len(results)} YouTube results")
-            return results[:limit]
+            logger.info(f"[WebSearch] Found {len(results)} YouTube results, validating accessibility...")
+
+            # Validate URLs and filter inaccessible ones
+            validated_results = await self._filter_accessible_results(
+                results,
+                self._validate_youtube_url,
+                limit
+            )
+
+            return validated_results
 
         except Exception as e:
             logger.error(f"[WebSearch] Error searching YouTube: {str(e)}")
@@ -190,4 +217,122 @@ class WebSearchService:
             if match:
                 return match.group(1)
         return None
+
+    async def _validate_pdf_url(self, url: str) -> bool:
+        """
+        Check if PDF URL is accessible and contains valid PDF content.
+
+        First tries HEAD request, then does a partial GET to verify magic bytes.
+        Returns True if the URL responds with 200 and content starts with %PDF-.
+        """
+        try:
+            async with httpx.AsyncClient(
+                timeout=15.0,
+                follow_redirects=True,
+                limits=httpx.Limits(max_connections=10)
+            ) as client:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "application/pdf,*/*"
+                }
+
+                # First try HEAD to check status
+                response = await client.head(url, headers=headers)
+
+                if response.status_code != 200:
+                    logger.debug(f"[WebSearch] PDF validation failed for {url}: status {response.status_code}")
+                    return False
+
+                content_type = response.headers.get("content-type", "").lower()
+
+                # If content-type clearly indicates PDF, trust it
+                if "pdf" in content_type:
+                    return True
+
+                # If URL ends with .pdf but content-type is uncertain, verify with partial GET
+                if url.lower().endswith(".pdf") or "octet-stream" in content_type:
+                    # Fetch first 10 bytes to check magic bytes
+                    response = await client.get(
+                        url,
+                        headers={**headers, "Range": "bytes=0-9"}
+                    )
+
+                    if response.status_code in (200, 206):
+                        content = response.content
+                        if content.startswith(b'%PDF-'):
+                            return True
+                        # Check if it's HTML (error page)
+                        if b'<!DOCTYPE' in content or b'<html' in content.lower():
+                            logger.debug(f"[WebSearch] PDF validation failed for {url}: got HTML instead of PDF")
+                            return False
+
+                logger.debug(f"[WebSearch] PDF validation failed for {url}: content-type {content_type}")
+                return False
+
+        except Exception as e:
+            logger.debug(f"[WebSearch] PDF validation error for {url}: {str(e)}")
+            return False
+
+    async def _validate_youtube_url(self, url: str) -> bool:
+        """
+        Check if YouTube video is accessible via oEmbed API.
+
+        The oEmbed API returns 200 for public videos and 401/404 for
+        private/deleted/unavailable videos.
+        """
+        video_id = self._extract_youtube_id(url)
+        if not video_id:
+            logger.debug(f"[WebSearch] YouTube validation failed: no video ID in {url}")
+            return False
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                oembed_url = f"https://www.youtube.com/oembed?url=https://youtube.com/watch?v={video_id}&format=json"
+                response = await client.get(oembed_url)
+
+                if response.status_code != 200:
+                    logger.debug(f"[WebSearch] YouTube validation failed for {video_id}: status {response.status_code}")
+                    return False
+
+                return True
+
+        except Exception as e:
+            logger.debug(f"[WebSearch] YouTube validation error for {video_id}: {str(e)}")
+            return False
+
+    async def _filter_accessible_results(
+        self,
+        results: List[SearchResult],
+        validator: Callable[[str], bool],
+        limit: int
+    ) -> List[SearchResult]:
+        """
+        Filter results by checking accessibility in parallel.
+
+        Args:
+            results: List of search results to validate
+            validator: Async function that takes URL and returns bool
+            limit: Maximum number of valid results to return
+
+        Returns:
+            List of accessible SearchResult objects (up to limit)
+        """
+        if not results:
+            return []
+
+        # Check all URLs in parallel
+        validation_tasks = [validator(r.url) for r in results]
+        checks = await asyncio.gather(*validation_tasks, return_exceptions=True)
+
+        # Filter valid results
+        valid_results = []
+        for result, is_valid in zip(results, checks):
+            # Treat exceptions as invalid
+            if is_valid is True:
+                valid_results.append(result)
+                if len(valid_results) >= limit:
+                    break
+
+        logger.info(f"[WebSearch] Validated {len(valid_results)}/{len(results)} results as accessible")
+        return valid_results
 

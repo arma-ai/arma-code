@@ -252,7 +252,7 @@ info: ## Показать информацию о проекте
 	@echo "$(BLUE)ℹ️  Информация о проекте$(NC)"
 	@echo ""
 	@echo "$(GREEN)Сервисы:$(NC)"
-	@echo "  PostgreSQL:     localhost:5433"
+	@echo "  PostgreSQL:     localhost:5434"
 	@echo "  Redis:          localhost:6379"
 	@echo "  Celery Worker:  (Docker container)"
 	@echo "  Backend:        http://localhost:8000"

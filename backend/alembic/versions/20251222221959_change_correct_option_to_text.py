@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = 'change_correct_option_text'
-down_revision = None
+down_revision = '69f9387fe939'
 branch_labels = None
 depends_on = None
 

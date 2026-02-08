@@ -34,6 +34,7 @@ yt-dlp==2024.11.18
 
 # Audio processing (for Whisper)
 pydub==0.25.1
+pyaudioop==0.0.1  # Python 3.13+ compatibility for pydub (audioop replacement)
 
 # Background Jobs
 celery[redis]==5.4.0

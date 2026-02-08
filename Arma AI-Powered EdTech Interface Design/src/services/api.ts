@@ -126,6 +126,10 @@ export const materialsApi = {
     await apiClient.post(`/materials/${id}/process`);
   },
 
+  retry: async (id: string): Promise<void> => {
+    await apiClient.post(`/materials/${id}/retry`);
+  },
+
   // Summary
   getSummary: async (id: string): Promise<MaterialSummary | null> => {
     try {
@@ -162,8 +166,23 @@ export const materialsApi = {
     return response.data;
   },
 
-  generatePodcastAudio: async (id: string): Promise<{ podcast_audio_url: string }> => {
-    const response = await apiClient.post(`/materials/${id}/podcast/generate-audio`);
+  generatePodcastAudio: async (
+    id: string,
+    ttsProvider: 'edge' | 'elevenlabs' = 'edge'
+  ): Promise<{
+    podcast_audio_url: string;
+    provider: string;
+    message: string;
+  }> => {
+    const response = await apiClient.post(
+      `/materials/${id}/podcast/generate-audio`,
+      null,
+      {
+        params: {
+          tts_provider: ttsProvider
+        }
+      }
+    );
     return response.data;
   },
 

@@ -4,7 +4,7 @@ import logging
 import httpx
 import tempfile
 import os
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -86,8 +86,8 @@ async def get_materials(
 async def create_material(
     title: str = Form(...),
     material_type: MaterialType = Form(...),
-    source: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None),
+    source: Optional[str] = Form(default=None),
+    file: Union[UploadFile, str, None] = File(default=""),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -111,10 +111,18 @@ async def create_material(
     Raises:
         HTTPException: If validation fails
     """
+    # Clean up source - treat empty string as None
+    if source is not None and source.strip() == "":
+        source = None
+
+    # Clean up file - treat empty string as None
+    if isinstance(file, str) and file.strip() == "":
+        file = None
+
     file_path = None
     file_size = None
     file_name = None
-    
+
     # Validate based on type
     if material_type == MaterialType.PDF:
         # Either file or source URL is required for PDF
@@ -151,10 +159,31 @@ async def create_material(
             try:
                 async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
                     response = await client.get(source, headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "application/pdf,*/*"
                     })
                     response.raise_for_status()
-                    
+
+                    # Get content
+                    pdf_content = response.content
+                    file_size = len(pdf_content)
+
+                    # Validate that content is actually a PDF (check magic bytes)
+                    if not pdf_content.startswith(b'%PDF-'):
+                        content_type = response.headers.get("content-type", "").lower()
+                        logger.error(f"Downloaded content is not a valid PDF. Content-Type: {content_type}, First bytes: {pdf_content[:50]}")
+
+                        # Check if it's HTML (likely an error page or login redirect)
+                        if b'<!DOCTYPE' in pdf_content[:100] or b'<html' in pdf_content[:100].lower():
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="URL returned HTML instead of PDF. The file may be behind authentication or unavailable."
+                            )
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Downloaded file is not a valid PDF"
+                        )
+
                     # Get filename from URL or content-disposition header
                     content_disposition = response.headers.get("content-disposition", "")
                     if "filename=" in content_disposition:
@@ -166,27 +195,25 @@ async def create_material(
                         file_name = unquote(url_path.split("/")[-1])
                         if not file_name.endswith('.pdf'):
                             file_name = f"{title[:50].replace(' ', '_')}.pdf"
-                    
-                    # Save to temp file first
-                    pdf_content = response.content
-                    file_size = len(pdf_content)
-                    
+
                     # Save using file storage
                     user_dir = f"storage/materials/{current_user.id}"
                     os.makedirs(user_dir, exist_ok=True)
                     file_path = os.path.join(user_dir, file_name)
-                    
+
                     with open(file_path, "wb") as f:
                         f.write(pdf_content)
-                    
-                    logger.info(f"Downloaded PDF: {file_path}, size: {file_size} bytes")
-                    
+
+                    logger.info(f"Downloaded valid PDF: {file_path}, size: {file_size} bytes")
+
             except httpx.HTTPStatusError as e:
                 logger.error(f"Failed to download PDF: HTTP {e.response.status_code}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Failed to download PDF: HTTP {e.response.status_code}"
                 )
+            except HTTPException:
+                raise  # Re-raise our own HTTPExceptions
             except Exception as e:
                 logger.error(f"Failed to download PDF: {str(e)}")
                 raise HTTPException(
@@ -566,6 +593,79 @@ async def process_material(
     return {"message": "Material processing completed successfully"}
 
 
+@router.post("/{material_id}/retry", response_model=MessageResponse)
+async def retry_material_processing(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Retry processing of a failed or stuck material.
+
+    Resets the material status and re-triggers the full processing pipeline
+    including text extraction and AI content generation.
+
+    Args:
+        material_id: Material ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        MessageResponse: Processing started message
+
+    Raises:
+        HTTPException: If material not found or access denied
+    """
+    await verify_material_owner(material_id, current_user, db)
+
+    result = await db.execute(
+        select(Material).where(Material.id == material_id)
+    )
+    material = result.scalar_one_or_none()
+
+    if not material:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Material not found"
+        )
+
+    # Reset material status
+    material.processing_status = ProcessingStatus.PROCESSING
+    material.processing_progress = 0
+    material.processing_error = None
+    await db.commit()
+
+    # Trigger Celery task for async processing
+    try:
+        task_kwargs = {
+            "material_id": str(material.id),
+            "material_type": material.type.value,
+        }
+
+        if material.type == MaterialType.PDF:
+            task_kwargs["file_path"] = material.file_path
+        elif material.type == MaterialType.YOUTUBE:
+            task_kwargs["source"] = material.source
+
+        logger.info(f"Retrying Celery task for material {material.id}")
+        task = process_material_task.apply_async(kwargs=task_kwargs)
+        logger.info(f"Celery retry task created: {task.id}")
+
+        return {"message": "Material processing restarted"}
+
+    except Exception as e:
+        logger.error(f"Failed to retry Celery task: {str(e)}")
+        # Mark as failed if we can't even start the task
+        material.processing_status = ProcessingStatus.FAILED
+        material.processing_error = f"Failed to restart processing: {str(e)}"
+        await db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restart processing: {str(e)}"
+        )
+
+
 @router.post("/{material_id}/regenerate/summary", response_model=MessageResponse)
 async def regenerate_summary(
     material_id: UUID,
@@ -742,19 +842,21 @@ async def generate_podcast_script(
 @router.post("/{material_id}/podcast/generate-audio")
 async def generate_podcast_audio(
     material_id: UUID,
+    tts_provider: str = "edge",  # "edge" или "elevenlabs"
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Generate podcast audio for a material using ElevenLabs.
+    Generate podcast audio for a material using Edge TTS (бесплатно) или ElevenLabs (платно).
 
     Args:
         material_id: Material ID
+        tts_provider: TTS провайдер ("edge" - бесплатно, "elevenlabs" - платно)
         db: Database session
         current_user: Current authenticated user
 
     Returns:
-        dict: Podcast audio URL
+        dict: Podcast audio URL and provider info
 
     Raises:
         HTTPException: If material not found, no script, or access denied
@@ -789,11 +891,31 @@ async def generate_podcast_audio(
         # Путь для сохранения аудио (локальный)
         storage_path = f"storage/podcasts/{current_user.id}/{filename}"
 
-        # Генерируем аудио
-        await podcast_service.generate_podcast_audio(
-            material.podcast_script,
-            storage_path
-        )
+        # Генерируем аудио в зависимости от провайдера
+        if tts_provider == "edge":
+            logger.info(f"Generating podcast audio with Edge TTS for material {material_id}")
+            await podcast_service.generate_podcast_audio_edge_tts(
+                material.podcast_script,
+                storage_path,
+                language="auto"
+            )
+            provider_used = "edge"
+        elif tts_provider == "elevenlabs":
+            logger.info(f"Generating podcast audio with ElevenLabs for material {material_id}")
+            await podcast_service.generate_podcast_audio(
+                material.podcast_script,
+                storage_path
+            )
+            provider_used = "elevenlabs"
+        else:
+            # По умолчанию используем Edge TTS с fallback
+            logger.info(f"Generating podcast audio with fallback strategy for material {material_id}")
+            await podcast_service.generate_podcast_audio_with_fallback(
+                material.podcast_script,
+                storage_path,
+                prefer_edge_tts=True
+            )
+            provider_used = "edge_with_fallback"
 
         # URL для доступа к аудио (для фронтенда)
         audio_url = f"/storage/podcasts/{current_user.id}/{filename}"
@@ -802,7 +924,11 @@ async def generate_podcast_audio(
         material.podcast_audio_url = audio_url
         await db.commit()
 
-        return {"podcast_audio_url": audio_url}
+        return {
+            "podcast_audio_url": audio_url,
+            "provider": provider_used,
+            "message": f"Podcast audio generated successfully using {provider_used}"
+        }
 
     except Exception as e:
         logger.error(f"Failed to generate podcast audio: {str(e)}")

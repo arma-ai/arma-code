@@ -1,3 +1,4 @@
+import json
 import secrets
 from pathlib import Path
 from typing import List, Union
@@ -101,6 +102,15 @@ class Settings(BaseSettings):
     # LLM Models
     LLM_MODEL_MINI: str = "gpt-4o-mini"
     LLM_MODEL: str = "gpt-4o"
+
+    # TTS Provider Configuration
+    TTS_PROVIDER: str = "edge"  # "edge" (бесплатно) или "elevenlabs" (платно)
+
+    # Edge TTS Voice Settings (можно кастомизировать)
+    EDGE_TTS_VOICE_RU_FEMALE: str = "ru-RU-SvetlanaNeural"
+    EDGE_TTS_VOICE_RU_MALE: str = "ru-RU-DmitryNeural"
+    EDGE_TTS_VOICE_EN_FEMALE: str = "en-US-AriaNeural"
+    EDGE_TTS_VOICE_EN_MALE: str = "en-US-GuyNeural"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

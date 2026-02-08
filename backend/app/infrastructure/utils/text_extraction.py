@@ -3,11 +3,12 @@ Utilities for extracting text from various document formats
 Supported formats: PDF, DOCX, DOC, TXT, RTF, ODT, EPUB, MD, HTML, YouTube
 """
 import logging
-from typing import Optional
+from typing import Optional, List
 from pathlib import Path
 import re
 import tempfile
 import os
+from xml.etree.ElementTree import ParseError as XMLParseError
 
 import pdfplumber
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -23,6 +24,7 @@ import ebooklib
 from ebooklib import epub
 import markdown
 from bs4 import BeautifulSoup
+from pydub import AudioSegment
 
 from app.core.config import settings
 
@@ -30,6 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+# Whisper API limits
+WHISPER_MAX_FILE_SIZE = 24 * 1024 * 1024  # 24 MB (safe margin from 25 MB limit)
+WHISPER_TARGET_BITRATE = "48k"  # Target bitrate for compression
 
 
 def extract_youtube_video_id(url: str) -> Optional[str]:
@@ -62,7 +68,7 @@ def extract_youtube_video_id(url: str) -> Optional[str]:
 
 def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
     """
-    Download audio from YouTube video.
+    Download audio from YouTube video with multiple fallback strategies.
 
     Args:
         url: YouTube video URL
@@ -79,53 +85,233 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
     if output_path is None:
         output_path = tempfile.mkdtemp()
 
-    # Enhanced options to bypass YouTube restrictions (especially in Docker)
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
+    # Strategy 1: iOS client (most reliable, bypasses most restrictions)
+    # Note: No ffmpeg postprocessing - use raw audio format for Whisper
+    ydl_opts_ios = {
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',  # Prefer m4a (no conversion needed)
         'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
-        # Options to bypass 403 errors
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-us,en;q=0.5',
-            'Sec-Fetch-Mode': 'navigate',
-        },
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web'],  # Try multiple clients
+                'player_client': ['ios'],  # iOS only - most reliable
+                'skip': ['hls', 'dash'],
             }
         },
         'socket_timeout': 30,
-        'retries': 3,
-        'fragment_retries': 3,
-        'ignoreerrors': False,
+        'retries': 5,
+        'fragment_retries': 5,
         'nocheckcertificate': True,
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            video_id = info['id']
-            audio_file = os.path.join(output_path, f"{video_id}.mp3")
+    # Strategy 2: Android client with enhanced headers
+    ydl_opts_android = {
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',  # Prefer m4a (no conversion needed)
+        'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
+        'quiet': True,
+        'no_warnings': True,
+        'http_headers': {
+            'User-Agent': 'com.google.android.youtube/19.51.37 (Linux; U; Android 14) gzip',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android'],
+                'skip': ['hls', 'dash'],
+            }
+        },
+        'socket_timeout': 30,
+        'retries': 5,
+        'fragment_retries': 5,
+        'nocheckcertificate': True,
+    }
 
-            logger.info(f"Successfully downloaded audio to: {audio_file}")
-            return audio_file
+    # Strategy 3: Web client with cookies (fallback)
+    ydl_opts_web = {
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',  # Prefer m4a (no conversion needed)
+        'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
+        'quiet': True,
+        'no_warnings': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+        },
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['web'],
+                'skip': ['hls', 'dash'],
+            }
+        },
+        'socket_timeout': 30,
+        'retries': 5,
+        'fragment_retries': 5,
+        'nocheckcertificate': True,
+        'age_limit': None,
+        'geo_bypass': True,
+    }
+
+    # Try each strategy in order
+    strategies = [
+        ('iOS client', ydl_opts_ios),
+        ('Android client', ydl_opts_android),
+        ('Web client', ydl_opts_web),
+    ]
+
+    last_error = None
+    for strategy_name, ydl_opts in strategies:
+        try:
+            logger.info(f"Attempting download with {strategy_name}...")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                video_id = info['id']
+
+                # Find the downloaded file (extension may vary: m4a, webm, opus, etc.)
+                # Check for common audio extensions
+                possible_exts = ['m4a', 'webm', 'opus', 'mp4', 'mp3', 'ogg']
+                audio_file = None
+
+                for ext in possible_exts:
+                    potential_file = os.path.join(output_path, f"{video_id}.{ext}")
+                    if os.path.exists(potential_file):
+                        audio_file = potential_file
+                        break
+
+                # If not found by extension, search directory
+                if not audio_file:
+                    for filename in os.listdir(output_path):
+                        if filename.startswith(video_id):
+                            audio_file = os.path.join(output_path, filename)
+                            break
+
+                if not audio_file or not os.path.exists(audio_file):
+                    raise ValueError(f"Downloaded file not found in {output_path}")
+
+                logger.info(f"✓ Successfully downloaded audio using {strategy_name}: {audio_file}")
+                return audio_file
+
+        except Exception as e:
+            logger.warning(f"✗ {strategy_name} failed: {str(e)}")
+            last_error = e
+            continue
+
+    # All strategies failed
+    logger.error(f"All download strategies failed. Last error: {str(last_error)}")
+    raise ValueError(f"Failed to download audio after trying all strategies: {str(last_error)}")
+
+
+def compress_audio(input_path: str, output_path: str, bitrate: str = WHISPER_TARGET_BITRATE) -> str:
+    """
+    Compress audio file to reduce size.
+
+    Args:
+        input_path: Path to input audio file
+        output_path: Path to save compressed audio
+        bitrate: Target bitrate (default: 48k)
+
+    Returns:
+        Path to compressed audio file
+
+    Raises:
+        ValueError: If compression fails
+    """
+    try:
+        logger.info(f"Compressing audio: {input_path} -> {output_path} (bitrate: {bitrate})")
+
+        # Load audio file
+        audio = AudioSegment.from_file(input_path)
+
+        # Export with compression
+        audio.export(
+            output_path,
+            format="mp3",
+            bitrate=bitrate,
+            parameters=["-ac", "1"]  # Convert to mono to save space
+        )
+
+        # Get file sizes
+        original_size = os.path.getsize(input_path)
+        compressed_size = os.path.getsize(output_path)
+        compression_ratio = (1 - compressed_size / original_size) * 100
+
+        logger.info(f"✓ Compressed: {original_size / 1024 / 1024:.2f} MB -> {compressed_size / 1024 / 1024:.2f} MB ({compression_ratio:.1f}% reduction)")
+
+        return output_path
 
     except Exception as e:
-        logger.error(f"Error downloading YouTube audio: {str(e)}")
-        raise ValueError(f"Failed to download audio: {str(e)}")
+        logger.error(f"Failed to compress audio: {str(e)}")
+        raise ValueError(f"Audio compression failed: {str(e)}")
+
+
+def split_audio_file(input_path: str, output_dir: str, max_size_bytes: int = WHISPER_MAX_FILE_SIZE) -> List[str]:
+    """
+    Split audio file into chunks if it exceeds max size.
+
+    Args:
+        input_path: Path to input audio file
+        output_dir: Directory to save chunks
+        max_size_bytes: Maximum size per chunk in bytes
+
+    Returns:
+        List of paths to audio chunks (or [input_path] if no split needed)
+
+    Raises:
+        ValueError: If splitting fails
+    """
+    try:
+        file_size = os.path.getsize(input_path)
+
+        # If file is small enough, no splitting needed
+        if file_size <= max_size_bytes:
+            logger.info(f"File size {file_size / 1024 / 1024:.2f} MB is within limit, no splitting needed")
+            return [input_path]
+
+        logger.info(f"File size {file_size / 1024 / 1024:.2f} MB exceeds limit, splitting...")
+
+        # Load audio
+        audio = AudioSegment.from_file(input_path)
+        duration_ms = len(audio)
+
+        # Calculate chunk duration based on file size
+        # Estimate: bytes_per_ms = file_size / duration_ms
+        bytes_per_ms = file_size / duration_ms
+        chunk_duration_ms = int(max_size_bytes / bytes_per_ms * 0.9)  # 90% to be safe
+
+        # Split audio into chunks
+        chunks = []
+        chunk_paths = []
+
+        for i, start_ms in enumerate(range(0, duration_ms, chunk_duration_ms)):
+            end_ms = min(start_ms + chunk_duration_ms, duration_ms)
+            chunk = audio[start_ms:end_ms]
+
+            chunk_path = os.path.join(output_dir, f"chunk_{i:03d}.mp3")
+            chunk.export(chunk_path, format="mp3")
+            chunk_paths.append(chunk_path)
+
+            chunk_size = os.path.getsize(chunk_path)
+            logger.info(f"Created chunk {i + 1}: {chunk_size / 1024 / 1024:.2f} MB ({start_ms / 1000:.1f}s - {end_ms / 1000:.1f}s)")
+
+        logger.info(f"✓ Split into {len(chunk_paths)} chunks")
+        return chunk_paths
+
+    except Exception as e:
+        logger.error(f"Failed to split audio: {str(e)}")
+        raise ValueError(f"Audio splitting failed: {str(e)}")
 
 
 def transcribe_audio_with_whisper(audio_file_path: str) -> str:
     """
-    Transcribe audio file using OpenAI Whisper API.
+    Transcribe audio file using OpenAI Whisper API with automatic compression and chunking.
+
+    Strategy:
+    1. Check file size
+    2. If > 24 MB -> compress to 48k bitrate
+    3. If still > 24 MB after compression -> split into chunks
+    4. Transcribe each chunk
+    5. Combine results
 
     Args:
         audio_file_path: Path to audio file
@@ -138,20 +324,89 @@ def transcribe_audio_with_whisper(audio_file_path: str) -> str:
     """
     logger.info(f"Transcribing audio with Whisper API: {audio_file_path}")
 
-    try:
-        with open(audio_file_path, 'rb') as audio_file:
-            transcript = openai_client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="text"
-            )
+    temp_files_to_cleanup = []
 
-        logger.info(f"Successfully transcribed audio, length: {len(transcript)} characters")
-        return transcript
+    try:
+        original_size = os.path.getsize(audio_file_path)
+        logger.info(f"Original audio file size: {original_size / 1024 / 1024:.2f} MB")
+
+        current_file = audio_file_path
+
+        # Step 1: Compress if file is too large
+        if original_size > WHISPER_MAX_FILE_SIZE:
+            logger.info(f"File exceeds {WHISPER_MAX_FILE_SIZE / 1024 / 1024:.0f} MB limit, compressing...")
+
+            # Create compressed file in same directory
+            file_dir = os.path.dirname(audio_file_path)
+            compressed_path = os.path.join(file_dir, "compressed_audio.mp3")
+
+            compress_audio(audio_file_path, compressed_path)
+            temp_files_to_cleanup.append(compressed_path)
+
+            current_file = compressed_path
+            compressed_size = os.path.getsize(compressed_path)
+            logger.info(f"Compressed file size: {compressed_size / 1024 / 1024:.2f} MB")
+
+        # Step 2: Check if we need to split
+        current_size = os.path.getsize(current_file)
+
+        if current_size > WHISPER_MAX_FILE_SIZE:
+            logger.info(f"File still exceeds limit after compression, splitting into chunks...")
+
+            # Split into chunks
+            file_dir = os.path.dirname(current_file)
+            chunk_paths = split_audio_file(current_file, file_dir)
+            temp_files_to_cleanup.extend(chunk_paths)
+
+            # Transcribe each chunk
+            logger.info(f"Transcribing {len(chunk_paths)} chunks...")
+            transcripts = []
+
+            for i, chunk_path in enumerate(chunk_paths, 1):
+                logger.info(f"Transcribing chunk {i}/{len(chunk_paths)}...")
+
+                with open(chunk_path, 'rb') as audio_file:
+                    chunk_transcript = openai_client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="text"
+                    )
+
+                transcripts.append(chunk_transcript)
+                logger.info(f"✓ Chunk {i} transcribed: {len(chunk_transcript)} characters")
+
+            # Combine all transcripts
+            full_transcript = " ".join(transcripts)
+            logger.info(f"✓ All chunks transcribed successfully: {len(full_transcript)} total characters")
+
+        else:
+            # File is small enough, transcribe directly
+            logger.info(f"File size is within limit, transcribing directly...")
+
+            with open(current_file, 'rb') as audio_file:
+                full_transcript = openai_client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    response_format="text"
+                )
+
+            logger.info(f"✓ Successfully transcribed: {len(full_transcript)} characters")
+
+        return full_transcript
 
     except Exception as e:
         logger.error(f"Error transcribing audio with Whisper: {str(e)}")
         raise ValueError(f"Failed to transcribe audio: {str(e)}")
+
+    finally:
+        # Cleanup temporary files
+        for temp_file in temp_files_to_cleanup:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                    logger.debug(f"Cleaned up temporary file: {temp_file}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to cleanup {temp_file}: {cleanup_error}")
 
 
 def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
@@ -224,14 +479,30 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
         if transcript is None:
             raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
-        # Fetch and combine transcript
-        transcript_data = transcript.fetch()
-        full_text = ' '.join([entry['text'] for entry in transcript_data])
+        # Fetch and combine transcript with validation
+        try:
+            transcript_data = transcript.fetch()
 
-        logger.info(f"✓ Strategy 1 successful: Extracted {len(full_text)} characters from subtitles")
-        return full_text
+            # Check if transcript data is valid
+            if not transcript_data or len(transcript_data) == 0:
+                raise ValueError("Transcript data is empty")
 
-    except (TranscriptsDisabled, NoTranscriptFound) as e:
+            # Extract text from transcript
+            full_text = ' '.join([entry.get('text', '') for entry in transcript_data if entry.get('text')])
+
+            # Validate extracted text
+            if not full_text or len(full_text.strip()) < 10:
+                raise ValueError(f"Extracted text too short: {len(full_text)} characters")
+
+            logger.info(f"✓ Strategy 1 successful: Extracted {len(full_text)} characters from subtitles")
+            return full_text
+
+        except (XMLParseError, ValueError) as fetch_error:
+            logger.warning(f"Failed to fetch transcript data: {str(fetch_error)}")
+            # Raise to trigger fallback to Whisper
+            raise NoTranscriptFound(video_id, ['ru', 'en'], None)
+
+    except (TranscriptsDisabled, NoTranscriptFound, XMLParseError, ValueError) as e:
         logger.warning(f"Strategy 1 failed: {str(e)}")
         logger.info("Strategy 2: Attempting to use Whisper API...")
 

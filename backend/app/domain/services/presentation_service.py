@@ -1,10 +1,10 @@
 """
 Presentation Service - генерация презентаций из материалов
 """
-from openai import AsyncOpenAI
 import httpx
 
 from app.infrastructure.database.models.material import Material
+from openai import AsyncOpenAI
 from app.core.config import settings
 
 
@@ -32,40 +32,32 @@ class PresentationService:
         # Используем summary если есть, иначе берем часть full_text
         content_context = summary or material.full_text[:10000]
 
-        system_prompt = """You are an expert presentation designer. Your goal is to create a perfect prompt for an AI presentation generator (SlidesGPT).
-
-The user wants a presentation based on the provided educational material.
-
-Output ONLY the prompt string that I should send to SlidesGPT. Do not include any explanations.
-
-The prompt should be structured like this:
-"Create a [Number] slide presentation about [Title]. The audience is [Audience].
-Cover these key points:
-- [Point 1]
-- [Point 2]
-...
-Tone: [Tone]. Visual Style: [Style]."
-
-Keep the prompt under 1000 characters if possible, but make it detailed enough for a high-quality result.
-The prompt MUST be in English regardless of the source text language."""
-
+        # Используем OpenAI для генерации промпта
         response = await self.openai_client.chat.completions.create(
-            model=settings.LLM_MODEL,  # gpt-4o
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": system_prompt},
+                {
+                    "role": "system",
+                    "content": """You are an expert presentation designer. Create a perfect prompt for SlidesGPT API.
+The prompt should describe a professional educational presentation with clear structure, key points, and visual style.
+
+Format: "Create a [number] slide presentation about [topic]. Target audience: [audience].
+Key points: - [point 1] - [point 2] ... Tone: [tone]. Visual style: [style]."
+
+Keep it under 1000 characters but detailed. ALWAYS use ENGLISH regardless of source language."""
+                },
                 {
                     "role": "user",
-                    "content": f"Title: {material.title}\n\nContent:\n{content_context}",
-                },
-            ],
-            temperature=0.7,
+                    "content": f"Title: {material.title}\n\nContent summary:\n{content_context}"
+                }
+            ]
         )
 
         prompt_content = response.choices[0].message.content
         if not prompt_content:
             raise ValueError("Failed to generate presentation prompt")
 
-        return prompt_content
+        return prompt_content.strip()
 
     async def generate_presentation_with_slidesgpt(
         self, prompt: str
