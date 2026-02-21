@@ -1,0 +1,137 @@
+# EduPlatform - Production Docker Compose (Simple)
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# No nginx, direct port exposure
+
+services:
+  # PostgreSQL с pgvector
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: eduplatform-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduplatform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-eduplatform_prod}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - eduplatform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduplatform} -d ${POSTGRES_DB:-eduplatform_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: eduplatform-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb
+    volumes:
+      - redis_data:/data
+    networks:
+      - eduplatform
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduplatform-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-eduplatform_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - APP_ENV=production
+      - DEBUG=False
+    volumes:
+      - ./backend/storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - eduplatform
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    container_name: eduplatform-celery-worker
+    restart: unless-stopped
+    command: celery -A app.infrastructure.queue.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-eduplatform_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./backend/storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - eduplatform
+
+  # Frontend
+  frontend:
+    build:
+      context: ./Arma AI-Powered EdTech Interface Design
+      dockerfile: Dockerfile
+    container_name: eduplatform-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+    networks:
+      - eduplatform
+
+  # Flower (Celery UI) - Optional
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    container_name: eduplatform-flower
+    restart: unless-stopped
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    command: celery -A app.infrastructure.queue.celery_app flower --port=5555 --broker=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - eduplatform
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  eduplatform:
+    driver: bridge

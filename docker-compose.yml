@@ -1,0 +1,178 @@
+services:
+  # PostgreSQL с pgvector
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: eduplatform-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduplatform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-eduplatform_dev}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      # Персистентное хранилище данных
+      - postgres_data:/var/lib/postgresql/data
+      # Init scripts (создание extensions)
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduplatform} -d ${POSTGRES_DB:-eduplatform_dev}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eduplatform
+
+  # Redis для кеширования и очередей
+  redis:
+    image: redis:7-alpine
+    container_name: eduplatform-redis
+    restart: unless-stopped
+    command: >
+      redis-server --appendonly yes --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      # Персистентное хранилище (AOF)
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eduplatform
+
+  # pgAdmin для управления PostgreSQL (опционально)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: eduplatform-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@eduplatform.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Set PGADMIN_PASSWORD in .env}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduplatform
+    profiles:
+      - tools # Запускается только с --profile tools
+
+  # Redis Commander для управления Redis (опционально)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: eduplatform-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - eduplatform
+    profiles:
+      - tools # Запускается только с --profile tools
+
+  # Celery Worker для фоновой обработки
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    container_name: eduplatform-celery-worker
+    restart: unless-stopped
+    command: >
+      celery -A app.infrastructure.queue.celery_app worker --loglevel=info --concurrency=2 --queues=materials,ai,celery --max-tasks-per-child=10 --time-limit=600 --soft-time-limit=540
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-eduplatform_dev}
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./backend:/app
+      - ./backend/storage:/app/storage
+    healthcheck:
+      test: [ "CMD-SHELL", "celery -A app.infrastructure.queue.celery_app inspect ping --timeout 10 2>/dev/null | grep -q 'pong' || exit 1" ]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - eduplatform
+
+  # Backend API (Bug 9.3 - added health check)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduplatform-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-eduplatform_dev}
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./backend:/app
+      - ./backend/storage:/app/storage
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - eduplatform
+
+  # Flower для мониторинга Celery (опционально)
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    container_name: eduplatform-flower
+    restart: unless-stopped
+    command: >
+      celery -A app.infrastructure.queue.celery_app flower --port=5555 --broker=redis://redis:6379/0
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - eduplatform
+    profiles:
+      - tools # Запускается только с --profile tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  eduplatform:
+    driver: bridge
