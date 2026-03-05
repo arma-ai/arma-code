@@ -1,7 +1,8 @@
 import json
+import os
 import secrets
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 from dotenv import load_dotenv
 from pydantic import field_validator
@@ -39,11 +40,46 @@ class Settings(BaseSettings):
     APP_NAME: str = "EduPlatform API"
     APP_ENV: str = "development"
     DEBUG: bool = True
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://eduplatform:dev123@localhost:5434/eduplatform_dev"
-    DATABASE_URL_SYNC: str = "postgresql://eduplatform:dev123@localhost:5434/eduplatform_dev"
+    # Security fix: Use environment variables for database credentials (Bug #1.1)
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "eduplatform")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5434")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "eduplatform_dev")
+    
+    # Construct DATABASE_URL from components, warn if no password set
+    @property
+    def DATABASE_URL(self) -> str:
+        if not self.POSTGRES_PASSWORD:
+            import warnings
+            warnings.warn(
+                "POSTGRES_PASSWORD not set! Using empty password. "
+                "This is a security risk in production.",
+                UserWarning,
+                stacklevel=1
+            )
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+    
+    @property
+    def DATABASE_URL_SYNC(self) -> str:
+        if not self.POSTGRES_PASSWORD:
+            import warnings
+            warnings.warn(
+                "POSTGRES_PASSWORD not set! Using empty password. "
+                "This is a security risk in production.",
+                UserWarning,
+                stacklevel=1
+            )
+        return (
+            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -55,10 +91,10 @@ class Settings(BaseSettings):
     SLIDESGPT_API_KEY: str = ""
 
     # Tavily (Web Search)
-    TAVILY_API_KEY: str = "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"
+    TAVILY_API_KEY: str = ""
 
     # JWT
-    JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
@@ -95,7 +131,7 @@ class Settings(BaseSettings):
 
     # AI Processing
     CHUNK_SIZE: int = 8000
-    EMBEDDING_CHUNK_SIZE: int = 1000
+    EMBEDDING_CHUNK_SIZE: int = 500
     EMBEDDING_MODEL: str = "text-embedding-3-large"
     EMBEDDING_DIMENSIONS: int = 3072
 
@@ -111,6 +147,21 @@ class Settings(BaseSettings):
     EDGE_TTS_VOICE_RU_MALE: str = "ru-RU-DmitryNeural"
     EDGE_TTS_VOICE_EN_FEMALE: str = "en-US-AriaNeural"
     EDGE_TTS_VOICE_EN_MALE: str = "en-US-GuyNeural"
+
+    # Voice Chat Configuration (OpenAI Realtime API)
+    VOICE_PROVIDER: str = "openai"  # "openai", "voicebox", или "personaplex"
+    OPENAI_REALTIME_MODEL: str = "gpt-4o-realtime-preview"
+    OPENAI_REALTIME_VOICE: str = "alloy"  # alloy, echo, fable, onyx, nova, shimmer
+
+    # Voicebox TTS Configuration (локальный TTS на базе Qwen3-TTS)
+    VOICEBOX_API_URL: str = "http://localhost:8001"  # Voicebox backend URL
+    VOICEBOX_DEFAULT_PROFILE_ID: Optional[str] = None  # Default voice profile ID
+    VOICEBOX_DEFAULT_LANGUAGE: str = "en"  # Default language: ru, en, de, fr, es, it, ja, ko, zh, pt
+    VOICEBOX_MODEL_SIZE: str = "1.7B"  # Model size: 1.7B или 0.6B
+    VOICEBOX_TIMEOUT_SECONDS: int = 60  # Timeout for TTS generation
+
+    # NVIDIA PersonaPlex (опционально, для локального GPU)
+    PERSONAPLEX_WS_URL: str = "wss://localhost:8998"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

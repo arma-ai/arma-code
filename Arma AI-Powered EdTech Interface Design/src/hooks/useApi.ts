@@ -9,7 +9,6 @@ import type {
   Material,
   Flashcard,
   QuizQuestion,
-  ExamQuizQuestion,
   TutorMessage,
   MaterialSummary,
   MaterialNotes
@@ -34,7 +33,7 @@ export function useMaterials() {
       setMaterials(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load materials');
-      console.error('Error fetching materials:', err);
+
     } finally {
       if (showLoading) {
         setLoading(false);
@@ -96,7 +95,7 @@ export function useMaterial(id: string | null) {
       setMaterial(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load material');
-      console.error('Error fetching material:', err);
+
     } finally {
       setLoading(false);
     }
@@ -130,7 +129,7 @@ export function useMaterialSummary(materialId: string | null) {
       setSummary(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load summary');
-      console.error('Error fetching summary:', err);
+
     } finally {
       setLoading(false);
     }
@@ -164,7 +163,7 @@ export function useMaterialNotes(materialId: string | null) {
       setNotes(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load notes');
-      console.error('Error fetching notes:', err);
+
     } finally {
       setLoading(false);
     }
@@ -198,7 +197,7 @@ export function useFlashcards(materialId: string | null) {
       setFlashcards(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load flashcards');
-      console.error('Error fetching flashcards:', err);
+
     } finally {
       setLoading(false);
     }
@@ -232,41 +231,7 @@ export function useQuizQuestions(materialId: string | null) {
       setQuestions(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load quiz questions');
-      console.error('Error fetching quiz questions:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchQuestions();
-  }, [materialId]);
-
-  return { questions, loading, error, refetch: fetchQuestions };
-}
-
-/**
- * Hook для загрузки quiz вопросов в exam режиме (без correct_option)
- */
-export function useExamQuizQuestions(materialId: string | null) {
-  const [questions, setQuestions] = useState<ExamQuizQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchQuestions = async () => {
-    if (!materialId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await quizApi.getExamQuestions(materialId);
-      setQuestions(data);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load exam questions');
-      console.error('Error fetching exam questions:', err);
     } finally {
       setLoading(false);
     }
@@ -301,7 +266,7 @@ export function useTutorChat(materialId: string | null) {
       setMessages(data.messages);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load chat history');
-      console.error('Error fetching chat history:', err);
+
     } finally {
       setLoading(false);
     }
@@ -320,7 +285,7 @@ export function useTutorChat(materialId: string | null) {
       return response;
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to send message');
-      console.error('Error sending message:', err);
+
       throw err;
     } finally {
       setSending(false);
@@ -335,7 +300,7 @@ export function useTutorChat(materialId: string | null) {
       setMessages([]);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to clear history');
-      console.error('Error clearing history:', err);
+
       throw err;
     }
   };
@@ -375,7 +340,7 @@ export function useCreateMaterial() {
       return material;
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to create material');
-      console.error('Error creating material:', err);
+
       throw err;
     } finally {
       setCreating(false);
@@ -399,7 +364,7 @@ export function useDeleteMaterial() {
       await materialsApi.delete(id);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to delete material');
-      console.error('Error deleting material:', err);
+
       throw err;
     } finally {
       setDeleting(false);

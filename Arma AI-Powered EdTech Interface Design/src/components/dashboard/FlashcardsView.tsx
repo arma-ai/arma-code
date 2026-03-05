@@ -125,7 +125,8 @@ function FlashcardsHome({ onMaterialClick }: { onMaterialClick: (id: string) => 
 }
 
 function DeckDetail({ materialId, onBack, onStart }: { materialId: string, onBack: () => void, onStart: () => void }) {
-  const { material } = useMaterials().materials.find(m => m.id === materialId) ? { material: useMaterials().materials.find(m => m.id === materialId)! } : { material: null };
+  const materialsContext = useMaterials();
+  const material = materialsContext.materials.find(m => m.id === materialId) || null;
   const { flashcards, loading } = useFlashcards(materialId);
 
   if (loading) {

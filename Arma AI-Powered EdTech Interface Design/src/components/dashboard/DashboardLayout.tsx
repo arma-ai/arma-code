@@ -101,10 +101,10 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
             active={currentView === 'exam'} 
             onClick={() => onNavigate('exam')}
           />
-          <SidebarItem 
-            icon={<Globe size={18} />} 
-            label="Languages" 
-            active={currentView === 'languages'} 
+          <SidebarItem
+            icon={<Globe size={18} />}
+            label="Languages"
+            active={currentView === 'languages'}
             onClick={() => onNavigate('languages')}
           />
           <SidebarItem

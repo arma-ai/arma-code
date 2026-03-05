@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 from datetime import datetime
 from uuid import UUID
 from typing import Optional
@@ -14,14 +16,25 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for creating a new user."""
-    password: str = Field(..., min_length=6, max_length=100)
+    password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "full_name": "John Doe",
-                "password": "strongpassword123"
+                "password": "StrongPassword1"
             }
         }
     )
@@ -76,6 +89,20 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=8, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: Optional[str]) -> Optional[str]:
+        """Validate password strength when updating (Bug #1.2)."""
+        if v is None:
+            return v
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
     model_config = ConfigDict(
         json_schema_extra={

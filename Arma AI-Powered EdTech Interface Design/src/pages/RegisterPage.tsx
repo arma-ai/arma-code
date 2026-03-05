@@ -7,7 +7,6 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
 import { AICore } from '../components/shared/AICore';
-import { hasLandingIntent } from '../utils/landingIntent';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,9 +41,8 @@ export const RegisterPage: React.FC = () => {
         full_name: formData.full_name,
       });
       toast.success('Регистрация успешна! Добро пожаловать!');
-      navigate(hasLandingIntent() ? '/dashboard?source=landing' : '/dashboard');
+      navigate('/dashboard');
     } catch (error: any) {
-      console.error('Registration error:', error);
       const message = error.response?.data?.detail || 'Ошибка регистрации. Попробуйте другой email.';
       toast.error(message);
     } finally {

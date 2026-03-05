@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(userData);
           localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {
-          console.error('Failed to load user:', error);
+
           removeAuthToken();
         }
       }
@@ -59,7 +59,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
     } catch (error) {
-      console.error('Login failed:', error);
       throw error;
     }
   };
@@ -74,7 +73,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
     } catch (error) {
-      console.error('Registration failed:', error);
       throw error;
     }
   };

@@ -11,15 +11,12 @@ import type {
   Flashcard,
   CreateFlashcardRequest,
   QuizQuestion,
-  ExamQuizQuestion,
   QuizResult,
   SubmitQuizRequest,
-  QuizAttemptSaveRequest,
   TutorMessage,
   SendTutorMessageRequest,
   TutorHistoryResponse,
   ApiError,
-  MessageResponse,
   SearchRequest,
   SearchResponse,
 } from '../types/api';
@@ -30,9 +27,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Request interceptor: Add JWT token to all requests
@@ -108,11 +102,7 @@ export const materialsApi = {
       formData.append('source', data.source);
     }
 
-    const response = await apiClient.post<Material>('/materials', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiClient.post<Material>('/materials', formData);
     return response.data;
   },
 
@@ -198,6 +188,12 @@ export const materialsApi = {
     const response = await apiClient.post(`/materials/${id}/presentation/generate`);
     return response.data;
   },
+
+  // Tutor TTS
+  tutorSpeak: async (materialId: string, messageId: string): Promise<{ audio_url: string; message_id: string }> => {
+    const response = await apiClient.post(`/materials/${materialId}/tutor/${messageId}/speak`);
+    return response.data;
+  },
 };
 
 // ============================================================================
@@ -216,6 +212,11 @@ export const tutorApi = {
 
   clearHistory: async (materialId: string): Promise<void> => {
     await apiClient.delete(`/materials/${materialId}/tutor/history`);
+  },
+
+  speakMessage: async (materialId: string, messageId: string): Promise<{ audio_url: string; message_id: string }> => {
+    const response = await apiClient.post(`/materials/${materialId}/tutor/${messageId}/speak`);
+    return response.data;
   },
 };
 
@@ -262,22 +263,13 @@ export const quizApi = {
     return response.data.questions;
   },
 
-  getExamQuestions: async (materialId: string): Promise<ExamQuizQuestion[]> => {
-    const response = await apiClient.get<{ questions: ExamQuizQuestion[]; total: number }>(`/materials/${materialId}/quiz/exam`);
-    return response.data.questions;
-  },
-
   submit: async (data: SubmitQuizRequest): Promise<QuizResult> => {
     const response = await apiClient.post<QuizResult>('/quiz/attempt', data);
     return response.data;
   },
 
-  saveAttempt: async (data: QuizAttemptSaveRequest): Promise<void> => {
-    await apiClient.post('/quiz/attempts/save', data);
-  },
-
-  regenerate: async (materialId: string, count: number = 10): Promise<MessageResponse> => {
-    const response = await apiClient.post<MessageResponse>(`/materials/${materialId}/regenerate/quiz?count=${count}`);
+  regenerate: async (materialId: string): Promise<QuizQuestion[]> => {
+    const response = await apiClient.post<QuizQuestion[]>(`/materials/${materialId}/regenerate/quiz`);
     return response.data;
   },
 };

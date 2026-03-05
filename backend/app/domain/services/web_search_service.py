@@ -1,6 +1,7 @@
 """
 Web Search Service using Tavily API.
 Searches for educational materials: PDFs, YouTube videos, and articles.
+With OpenAI fallback when no materials found.
 """
 import asyncio
 import logging
@@ -10,6 +11,7 @@ from urllib.parse import urlparse
 
 import httpx
 from tavily import TavilyClient
+from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.schemas.search import SearchResult, SearchResultType
@@ -17,7 +19,11 @@ from app.schemas.search import SearchResult, SearchResultType
 logger = logging.getLogger(__name__)
 
 # Multiplier for fetching extra results to filter
-VALIDATION_FETCH_MULTIPLIER = 3
+# Reduced from 3 to 2 for faster response
+VALIDATION_FETCH_MULTIPLIER = 2
+
+# Timeout for URL validation (seconds)
+VALIDATION_TIMEOUT = 8.0
 
 
 class WebSearchService:
@@ -25,6 +31,7 @@ class WebSearchService:
 
     def __init__(self):
         self.client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+        self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
     async def search(
         self,
@@ -46,18 +53,27 @@ class WebSearchService:
         results: List[SearchResult] = []
 
         try:
-            # Search for each type
+            # Search for all types IN PARALLEL for faster response
+            search_tasks = []
+            
             if SearchResultType.PDF in types:
-                pdf_results = await self._search_pdfs(query, limit)
-                results.extend(pdf_results)
+                search_tasks.append(self._search_pdfs(query, limit))
 
             if SearchResultType.YOUTUBE in types:
-                youtube_results = await self._search_youtube(query, limit)
-                results.extend(youtube_results)
+                search_tasks.append(self._search_youtube(query, limit))
 
             if SearchResultType.ARTICLE in types:
-                article_results = await self._search_articles(query, limit)
-                results.extend(article_results)
+                search_tasks.append(self._search_articles(query, limit))
+
+            # Execute all searches in parallel
+            search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+            
+            # Combine all results
+            for result in search_results:
+                if isinstance(result, list):
+                    results.extend(result)
+                elif isinstance(result, Exception):
+                    logger.error(f"[WebSearch] Search task failed: {str(result)}")
 
             logger.info(f"[WebSearch] Found {len(results)} results for query: {query}")
             return results
@@ -227,9 +243,9 @@ class WebSearchService:
         """
         try:
             async with httpx.AsyncClient(
-                timeout=15.0,
+                timeout=httpx.Timeout(10.0, connect=5.0),
                 follow_redirects=True,
-                limits=httpx.Limits(max_connections=10)
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20)
             ) as client:
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -269,6 +285,9 @@ class WebSearchService:
                 logger.debug(f"[WebSearch] PDF validation failed for {url}: content-type {content_type}")
                 return False
 
+        except asyncio.TimeoutError:
+            logger.debug(f"[WebSearch] PDF validation timeout for {url}")
+            return False
         except Exception as e:
             logger.debug(f"[WebSearch] PDF validation error for {url}: {str(e)}")
             return False
@@ -286,7 +305,10 @@ class WebSearchService:
             return False
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(5.0, connect=2.0),
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20)
+            ) as client:
                 oembed_url = f"https://www.youtube.com/oembed?url=https://youtube.com/watch?v={video_id}&format=json"
                 response = await client.get(oembed_url)
 
@@ -296,6 +318,9 @@ class WebSearchService:
 
                 return True
 
+        except asyncio.TimeoutError:
+            logger.debug(f"[WebSearch] YouTube validation timeout for {video_id}")
+            return False
         except Exception as e:
             logger.debug(f"[WebSearch] YouTube validation error for {video_id}: {str(e)}")
             return False
@@ -307,7 +332,7 @@ class WebSearchService:
         limit: int
     ) -> List[SearchResult]:
         """
-        Filter results by checking accessibility in parallel.
+        Filter results by checking accessibility in parallel with timeout.
 
         Args:
             results: List of search results to validate
@@ -320,8 +345,18 @@ class WebSearchService:
         if not results:
             return []
 
-        # Check all URLs in parallel
-        validation_tasks = [validator(r.url) for r in results]
+        # Check all URLs in parallel with timeout
+        async def validate_with_timeout(result: SearchResult) -> bool:
+            try:
+                return await asyncio.wait_for(validator(result.url), timeout=VALIDATION_TIMEOUT)
+            except asyncio.TimeoutError:
+                logger.debug(f"[WebSearch] Validation timeout for {result.url}")
+                return False
+            except Exception as e:
+                logger.debug(f"[WebSearch] Validation error for {result.url}: {str(e)}")
+                return False
+
+        validation_tasks = [validate_with_timeout(r) for r in results]
         checks = await asyncio.gather(*validation_tasks, return_exceptions=True)
 
         # Filter valid results
@@ -335,4 +370,44 @@ class WebSearchService:
 
         logger.info(f"[WebSearch] Validated {len(valid_results)}/{len(results)} results as accessible")
         return valid_results
+
+    async def get_ai_answer(self, query: str) -> str:
+        """
+        Get direct answer from OpenAI when no materials found.
+        
+        Args:
+            query: User's search query
+            
+        Returns:
+            AI-generated answer
+        """
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=settings.LLM_MODEL_MINI,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a helpful educational assistant. "
+                            "Provide clear, concise answers to learning questions. "
+                            "If you don't know something, say so honestly. "
+                            "Respond in the same language as the question."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": query
+                    }
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            answer = response.choices[0].message.content.strip()
+            logger.info(f"[WebSearch] Generated AI answer for query: {query[:50]}...")
+            return answer
+            
+        except Exception as e:
+            logger.error(f"[WebSearch] Error generating AI answer: {str(e)}")
+            return "Извините, не удалось получить ответ. Попробуйте другой запрос."
 

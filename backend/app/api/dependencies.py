@@ -9,32 +9,15 @@ from sqlalchemy import select
 from uuid import UUID
 
 from app.core.config import settings
-from app.core.security import verify_password
-from app.infrastructure.database.session import AsyncSessionLocal
+from app.core.security import verify_password, is_token_blacklisted  # noqa: F401 (re-exported)
+# Bug fix #1.4: Use single session dependency from session.py
+from app.infrastructure.database.session import get_async_session as get_db
 from app.infrastructure.database.models.user import User
 from app.schemas.user import TokenData
 
 
 # Security scheme
 security = HTTPBearer()
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Dependency for getting async database session.
-
-    Yields:
-        AsyncSession: Database session
-    """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
 
 
 async def get_current_user(
@@ -44,6 +27,11 @@ async def get_current_user(
     """
     Dependency for getting current authenticated user from JWT token.
 
+    Performs three checks:
+      1. Token signature / expiry via JWT decode.
+      2. Redis blacklist check (token invalidated on logout).
+      3. User exists and is found in the database.
+
     Args:
         credentials: HTTP Bearer token credentials
         db: Database session
@@ -52,7 +40,7 @@ async def get_current_user(
         User: Authenticated user
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException 401: If token is invalid, blacklisted, or user not found
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,8 +48,10 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    token = credentials.credentials
+
+    # ── 1. Decode JWT ────────────────────────────────────────────────────────
     try:
-        token = credentials.credentials
         payload = jwt.decode(
             token,
             settings.JWT_SECRET_KEY,
@@ -80,7 +70,15 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    # Get user from database
+    # ── 2. Redis blacklist check (token invalidated by logout) ───────────────
+    if await is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # ── 3. Database lookup ───────────────────────────────────────────────────
     result = await db.execute(
         select(User).where(User.id == token_data.user_id)
     )

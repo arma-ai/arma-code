@@ -31,7 +31,7 @@ async def create_admin_user():
             print("❌ Admin user already exists!")
             return
 
-        # Create admin user
+        # Create admin user (created_at/updated_at will be set by database triggers)
         admin = User(
             id=uuid4(),
             email="admin@example.com",

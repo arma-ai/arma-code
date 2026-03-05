@@ -1,139 +1,471 @@
 # EduPlatform
 
-Next.js проект с TypeScript, Tailwind CSS и Supabase.
+**AI-Powered Educational Platform for Adaptive Learning**
 
-## Настройка
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org)
 
-### 1. Установка зависимостей
+---
+
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [API Documentation](#api-documentation)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+---
+
+## ✨ Features
+
+### Core Features
+
+- **📚 Material Upload** - Upload PDFs or YouTube videos for processing
+- **🤖 AI Processing** - Automatic generation of summaries, notes, flashcards, and quizzes
+- **💬 AI Tutor Chat** - RAG-based chatbot that answers questions about your materials
+- **📝 Interactive Quizzes** - Test your knowledge with AI-generated questions
+- **🎯 Flashcards** - Study with smart flashcard system
+- **🎮 Gamification** - Earn XP and unlock achievements
+
+### AI Features
+
+- **Summary Generation** - GPT-4o-mini creates concise summaries
+- **Study Notes** - Structured notes in markdown format
+- **Flashcards** - 15+ question-answer pairs
+- **Quiz Questions** - 10+ multiple-choice questions
+- **RAG Tutor** - Context-aware answers from your documents
+- **Text-to-Speech** - Listen to your materials (Edge TTS)
+
+---
+
+## 🛠️ Tech Stack
+
+### Backend
+
+- **Framework:** FastAPI 0.115
+- **Database:** PostgreSQL 15+ with pgvector
+- **ORM:** SQLAlchemy 2.0 (async)
+- **Cache:** Redis
+- **Task Queue:** Celery 5.4
+- **AI:** OpenAI (GPT-4o, GPT-4o-mini, text-embedding-3-large)
+- **Auth:** JWT with OAuth2
+
+### Frontend
+
+- **Framework:** React 18 + TypeScript
+- **Build Tool:** Vite 6.3
+- **Styling:** Tailwind CSS
+- **Routing:** React Router 7
+- **HTTP Client:** Axios
+- **UI Components:** Radix UI, Lucide Icons
+- **Animations:** Motion (Framer Motion)
+
+### Infrastructure
+
+- **Containerization:** Docker & Docker Compose
+- **Monitoring:** Prometheus, Flower (Celery UI)
+- **Database Tools:** pgAdmin, Redis Commander
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.10 or higher
+- Node.js 18 or higher
+- PostgreSQL 15+ (with pgvector extension)
+- Redis
+
+### One-Command Install & Launch
 
 ```bash
+# Clone the repository
+cd arma-code-main
+
+# Run the installer (prompts for API keys)
+./install.sh
+```
+
+The installer will:
+1. ✅ Check system requirements
+2. ✅ Install Python & Node.js dependencies
+3. ✅ Prompt for API keys (OpenAI, Tavily)
+4. ✅ Setup PostgreSQL database
+5. ✅ Run migrations
+6. ✅ Start all services
+
+### Access the Application
+
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8000
+- **Swagger Docs:** http://localhost:8000/docs
+
+**Default Admin:**
+- Email: `admin@example.com`
+- Password: `admin123`
+
+---
+
+## 📦 Installation
+
+### Manual Installation
+
+#### 1. Backend
+
+```bash
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or: venv\Scripts\activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+#### 2. Frontend
+
+```bash
+cd "Arma AI-Powered EdTech Interface Design"
+
+# Install dependencies
 npm install
 ```
 
-### 2. Настройка Supabase и OpenAI
-
-1. Создайте проект на [Supabase](https://supabase.com)
-2. Получите API ключ на [OpenAI](https://platform.openai.com/api-keys)
-3. Скопируйте `.env.local.example` в `.env.local`
-4. Заполните переменные окружения:
-   - `NEXT_PUBLIC_SUPABASE_URL` - URL вашего проекта Supabase
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Anon key из настроек проекта
-   - `OPENAI_API_KEY` - API ключ OpenAI
-
-### 3. Настройка базы данных
-
-Выполните SQL из файла `supabase-setup.sql` в SQL Editor Supabase. Это создаст:
-- Таблицу `profiles` для профилей пользователей
-- Таблицу `materials` для загруженных PDF материалов
-- Таблицы `material_summaries`, `material_notes`, `flashcards` для AI обработки
-- Таблицу `quizzes` для тестовых вопросов
-- Таблицы `material_embeddings` и `tutor_messages` для RAG чата
-- Расширение `pgvector` для работы с embeddings
-- Все необходимые RLS политики и функции
-
-**Важно**: Убедитесь, что расширение `pgvector` установлено в вашем Supabase проекте.
-
-### 4. Настройка Google OAuth
-
-1. В Supabase Dashboard перейдите в Authentication > Providers
-2. Включите Google provider
-3. Добавьте Client ID и Client Secret из Google Cloud Console
-4. В Authorized redirect URLs добавьте: `https://your-project-ref.supabase.co/auth/v1/callback`
-
-### 5. Настройка Storage для PDF материалов
-
-**Важно**: Перед загрузкой PDF файлов нужно настроить Storage bucket.
-
-См. подробные инструкции в файле `storage-setup.md` или выполните:
-
-1. В Supabase Dashboard перейдите в **Storage**
-2. Создайте bucket с именем `materials` (не публичный)
-3. Настройте политики доступа (см. `storage-setup.md`)
-
-### 6. Запуск проекта
+### Docker Installation
 
 ```bash
+# Start all services with Docker Compose
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+```
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create `.env` in the project root:
+
+```bash
+# Database
+POSTGRES_USER=eduplatform
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=eduplatform_dev
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# OpenAI (Required)
+OPENAI_API_KEY=sk-proj-YOUR_KEY_HERE
+
+# Tavily (Optional - for web search)
+TAVILY_API_KEY=tvly-YOUR_KEY_HERE
+
+# JWT Secrets (Auto-generated by install.sh)
+SECRET_KEY=your_secret_key
+JWT_SECRET_KEY=your_jwt_secret
+
+# App Settings
+APP_ENV=development
+DEBUG=True
+```
+
+### Get API Keys
+
+1. **OpenAI:** https://platform.openai.com/api-keys
+2. **Tavily:** https://tavily.com/
+
+### Database Setup
+
+```bash
+# Create PostgreSQL user and database
+sudo -u postgres psql -c "CREATE USER eduplatform WITH PASSWORD 'your_password' CREATEDB;"
+sudo -u postgres psql -c "CREATE DATABASE eduplatform_dev OWNER eduplatform;"
+
+# Enable pgvector extension
+sudo -u postgres psql -d eduplatform_dev -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+---
+
+## 🎯 Usage
+
+### Start Services
+
+```bash
+# Using install script
+./install.sh
+
+# Or manually:
+
+# Terminal 1 - Backend
+cd backend
+source venv/bin/activate
+python -m uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 - Frontend
+cd "Arma AI-Powered EdTech Interface Design"
+npm run dev
+
+# Terminal 3 - Celery Worker (optional)
+cd backend
+source venv/bin/activate
+celery -A app.infrastructure.queue.celery_app worker --loglevel=info
+```
+
+### Stop Services
+
+```bash
+# Stop all services
+./cleanup.sh stop
+
+# Or manually kill processes
+pkill -f "uvicorn app.main:app"
+pkill -f "vite"
+pkill -f "celery"
+```
+
+### Check Status
+
+```bash
+# Service status
+./install.sh status
+
+# Backend health
+curl http://localhost:8000/health
+
+# Frontend
+curl http://localhost:3000
+```
+
+---
+
+## 📁 Project Structure
+
+```
+arma-code-main/
+├── backend/                    # Python FastAPI backend
+│   ├── app/
+│   │   ├── api/               # API endpoints
+│   │   ├── core/              # Core configuration
+│   │   ├── domain/            # Domain models & services
+│   │   ├── infrastructure/    # Database, cache, AI services
+│   │   ├── schemas/           # Pydantic schemas
+│   │   └── main.py            # FastAPI app entry
+│   ├── alembic/               # Database migrations
+│   ├── tests/                 # Pytest tests
+│   ├── requirements.txt       # Python dependencies
+│   └── create_admin.py        # Admin user creation
+│
+├── Arma AI-Powered EdTech Interface Design/  # React frontend
+│   ├── src/
+│   │   ├── components/        # React components
+│   │   ├── pages/             # Page components
+│   │   ├── services/          # API services
+│   │   ├── contexts/          # React contexts
+│   │   └── App.tsx            # App entry
+│   ├── package.json           # Node dependencies
+│   └── vite.config.ts         # Vite configuration
+│
+├── scripts/                   # Deployment scripts
+│   ├── deploy.sh              # Production deploy
+│   └── eduplatform.service    # Systemd service
+│
+├── install.sh                 # Install & launch script
+├── cleanup.sh                 # Cleanup script
+├── docker-compose.yml         # Docker Compose config
+└── README.md                  # This file
+```
+
+---
+
+## 📖 API Documentation
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/ready` | Readiness check |
+| GET | `/metrics` | Prometheus metrics |
+| POST | `/api/v1/auth/login` | User login |
+| POST | `/api/v1/auth/register` | User registration |
+| GET | `/api/v1/materials` | List materials |
+| POST | `/api/v1/materials` | Upload material |
+| POST | `/api/v1/materials/{id}/summary` | Generate summary |
+| POST | `/api/v1/materials/{id}/notes` | Generate notes |
+| POST | `/api/v1/materials/{id}/flashcards` | Generate flashcards |
+| POST | `/api/v1/materials/{id}/quiz` | Generate quiz |
+| POST | `/api/v1/tutor/chat` | Chat with AI tutor |
+| GET | `/api/v1/search` | Web search |
+
+### Swagger UI
+
+Interactive API documentation available at: http://localhost:8000/docs
+
+---
+
+## 👨‍💻 Development
+
+### Running Tests
+
+```bash
+cd backend
+source venv/bin/activate
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app
+
+# Run specific test file
+pytest tests/test_config.py -v
+```
+
+### Code Style
+
+```bash
+# Backend lint
+flake8 backend/app
+
+# Format code
+black backend/app
+```
+
+### Database Migrations
+
+```bash
+cd backend
+source venv/bin/activate
+
+# Create new migration
+alembic revision --autogenerate -m "Description"
+
+# Apply migrations
+alembic upgrade head
+
+# Rollback
+alembic downgrade -1
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### 1. "Address already in use"
+
+```bash
+# Stop existing processes
+pkill -f "uvicorn app.main:app"
+pkill -f "vite"
+pkill -f "celery"
+```
+
+#### 2. "greenlet library is required"
+
+```bash
+cd backend
+source venv/bin/activate
+pip install greenlet==3.2.3
+```
+
+#### 3. "email-validator is not installed"
+
+```bash
+cd backend
+source venv/bin/activate
+pip install email-validator==2.2.0
+```
+
+#### 4. Database connection failed
+
+```bash
+# Check PostgreSQL is running
+sudo systemctl status postgresql
+
+# Start if needed
+sudo systemctl start postgresql
+
+# Check credentials in .env
+cat backend/.env | grep POSTGRES
+```
+
+#### 5. Frontend won't start
+
+```bash
+cd "Arma AI-Powered EdTech Interface Design"
+
+# Clear cache and reinstall
+rm -rf node_modules
+npm install
 npm run dev
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000) в браузере.
+### Logs
 
-## Структура проекта
+```bash
+# Backend logs (check terminal output)
 
-- `/app` - App Router страницы
-- `/app/actions` - Server Actions для работы с данными
-- `/lib` - Утилиты и клиенты Supabase
-- `/middleware.ts` - Middleware для защиты маршрутов
+# Frontend logs (check terminal output)
 
-## Маршруты
+# Celery logs
+celery -A app.infrastructure.queue.celery_app inspect active
 
-- `/` - Главная страница (редирект на /login или /dashboard)
-- `/login` - Страница входа с Google OAuth
-- `/dashboard` - Защищённая страница Dashboard со списком материалов
-- `/dashboard/upload` - Страница загрузки PDF материалов
-- `/dashboard/materials/[id]` - Страница просмотра конкретного материала
+# Docker logs
+docker compose logs -f backend
+docker compose logs -f celery-worker
+```
 
-## Функциональность
+### Reset Everything
 
-### Авторизация
-- Google OAuth вход
-- Автоматическое создание профиля при первом входе
+```bash
+# Clean project
+./cleanup.sh
 
-## React Bits: анимированные UI-компоненты
+# Reinstall
+./install.sh
+```
 
-- Установка: `npm install react-bits motion` (React Bits распространяется как набор готовых компонентов; `motion` нужен для анимаций в TiltedCard/AnimatedList). Компоненты уже добавлены в репозиторий, поэтому установка пакета `react-bits` опциональна; команда приведена для полноты.
-- Tailwind: добавлены keyframes/animation для звездных границ (`animate-star-movement-*` в `tailwind.config.ts`). Убедитесь, что `npm run dev` перезапущен после изменения конфига.
-- Документация: https://reactbits.dev/ — там же можно подтянуть новые компоненты или обновить локальные версии.
-- Новые компоненты (расположены в `app/components/reactbits`):
-  - `HeroButton.tsx` — обертка над React Bits `StarBorder` с mount/hover анимацией, кастомизацией цвета/скорости/толщины рамки.
-  - `TiltCard.tsx` — 3D карточка на базе `TiltedCard` (поддержка подписи, бейджа, регулировка амплитуды и масштабирования).
-  - `ScrollList.tsx` — scroll-reveal список на основе `AnimatedList` (регулируемые delay/duration, градиентные маски, клавиатурная навигация).
-  - Исходники React Bits (TS + Tailwind) в `app/components/reactbits/library` для прозрачности и возможного обновления.
-- Использование: импортируйте нужный компонент, пример:
-  ```tsx
-  import HeroButton from '@/components/reactbits/HeroButton';
-  import TiltCard from '@/components/reactbits/TiltCard';
-  import ScrollList from '@/components/reactbits/ScrollList';
+---
 
-  export default function HomePage() {
-    return (
-      <main className="space-y-10">
-        <HeroButton label="Начать" color="#7C3AED" speed="5s" />
-        <TiltCard imageSrc="/images/study.jpg" title="Adaptive Learning" rotateAmplitude={10} />
-        <ScrollList title="Недавние материалы" items={['Physics', 'Chemistry', 'Biology']} itemDelay={0.08} />
-      </main>
-    );
-  }
-  ```
-- Оптимизация и best practices: держите компоненты в лени-вставляемых секциях или используйте динамический импорт для тяжелых анимаций, включайте tree-shaking (Next.js делает это автоматически), оборачивайте списки в `React.memo`/`useMemo` если пропсы стабильны, уважайте `prefers-reduced-motion` (обработано в HeroButton/TiltCard), по возможности используйте `translate/opacity` (GPU-friendly) и избегайте лишних reflow. Если GSAP не нужен — не подключайте; выбранный `motion` легковеснее.
-- Middleware защита маршрутов
+## 📄 License
 
-### Управление материалами
-- Загрузка PDF файлов в Supabase Storage
-- Просмотр списка своих материалов
-- Детальная информация о каждом материале
-- Пользователи видят только свои материалы (RLS)
+This project is proprietary software. All rights reserved.
 
-### AI Обработка материалов
-- Автоматическая обработка PDF с помощью OpenAI
-- Извлечение текста из PDF
-- Генерация summary (gpt-4o-mini)
-- Генерация study notes (gpt-4o-mini)
-- Генерация flashcards (gpt-4o)
-- Все данные сохраняются в базе данных
+---
 
-### Quiz система
-- Генерация тестовых вопросов на основе study notes
-- Минимум 10 вопросов с 4 вариантами ответа
-- Использование gpt-4o для генерации вопросов
-- Отображение правильных ответов
-- Пользователи видят только свои quizzes (RLS)
+## 🆘 Support
 
-### AI Tutor Chat (RAG)
-- Чат с AI-тьютором на основе RAG (Retrieval-Augmented Generation)
-- Автоматическое создание embeddings для каждого чанка материала (text-embedding-3-large)
-- Поиск релевантных чанков через cosine similarity
-- Ответы строго на основе материала
-- Если информации нет - ассистент сообщает "в документе нет ответа"
-- История сообщений сохраняется в базе данных
-- Использование gpt-4o для генерации ответов
+For issues or questions:
+
+1. Check the [Troubleshooting](#troubleshooting) section
+2. Review API docs: http://localhost:8000/docs
+3. Check logs for error messages
+
+---
+
+**Version:** 1.0.0  
+**Last Updated:** February 21, 2026

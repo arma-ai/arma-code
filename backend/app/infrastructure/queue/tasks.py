@@ -8,7 +8,6 @@ from typing import Optional
 from celery import Task
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 
 from app.infrastructure.queue.celery_app import celery_app
 from app.core.config import settings
@@ -16,11 +15,14 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Async database session для tasks
-# Используем NullPool, чтобы избежать проблем с event loops и fork в Celery
+# Using proper connection pool (pool_size=5) for better performance
 async_engine = create_async_engine(
-    settings.DATABASE_URL, 
+    settings.DATABASE_URL,
     echo=False,
-    poolclass=NullPool
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 AsyncSessionLocal = sessionmaker(
     async_engine, class_=AsyncSession, expire_on_commit=False
@@ -76,6 +78,7 @@ def process_material_task(
     from sqlalchemy import select, update
 
     logger.info(f"[process_material_task] Starting processing for material {material_id}")
+    logger.info(f"[process_material_task] Parameters: material_type={material_type}, file_path={file_path}, source={source}")
 
     # Используем словарь для хранения контекста, чтобы избежать UnboundLocalError
     # с file_path во вложенной функции
@@ -97,7 +100,7 @@ def process_material_task(
 
                 # Step 1: Extract text
                 full_text = None
-                if material_type == "youtube":
+                if material_type.lower() == "youtube":
                     logger.info(f"[process_material_task] Extracting text from YouTube: {source}")
                     full_text = extract_text_from_youtube(source)
                 else:
@@ -105,42 +108,37 @@ def process_material_task(
                     # Получаем текущий путь из контекста
                     current_path = task_context["file_path"]
 
-                    # Проверка пути файла для Docker окружения
+                    # Проверка пути файла
                     import os
                     if current_path and not os.path.exists(current_path):
-                        # Если путь относительный (storage/...), попробуем найти его в /app/storage
-                        # Это актуально, если backend запущен локально, а worker в Docker
+                        # Если путь относительный (storage/...), попробуем найти его
                         if not current_path.startswith('/'):
+                            # Try /app/storage first (Docker)
                             docker_path = os.path.join('/app', current_path)
                             if os.path.exists(docker_path):
                                 logger.info(f"[process_material_task] Resolved path in Docker: {docker_path}")
                                 task_context["file_path"] = docker_path
                                 current_path = docker_path
                             else:
-                                logger.error(f"[process_material_task] File not found in Docker at: {docker_path}")
-                                # Debug: list storage directory
-                                try:
-                                    storage_dir = '/app/storage'
-                                    if os.path.exists(storage_dir):
-                                        logger.info(f"Listing {storage_dir}: {os.listdir(storage_dir)}")
+                                # Try backend directory (local development)
+                                import sys
+                                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                                local_path = os.path.join(backend_dir, current_path)
+                                if os.path.exists(local_path):
+                                    logger.info(f"[process_material_task] Resolved path locally: {local_path}")
+                                    task_context["file_path"] = local_path
+                                    current_path = local_path
+                                else:
+                                    logger.error(f"[process_material_task] File not found at: {local_path}")
+                                    raise FileNotFoundError(f"File not found: {current_path}")
 
-                                        # Deep debug: list subdirectories if they exist
-                                        parts = current_path.split('/')
-                                        if len(parts) > 1 and parts[0] == 'storage':
-                                            # storage/materials/uuid/...
-                                            if os.path.exists('/app/storage/materials'):
-                                                try:
-                                                    logger.info(f"Listing /app/storage/materials: {os.listdir('/app/storage/materials')}")
-                                                except:
-                                                    pass
-                                except Exception as e:
-                                    logger.error(f"Failed to list storage dir: {e}")
-
-                    logger.info(f"[process_material_task] Extracting text from {material_type.upper()}: {current_path}")
+                    # Article type is stored as HTML, so use HTML extractor
+                    extract_type = "html" if material_type.lower() == "article" else material_type
+                    logger.info(f"[process_material_task] Extracting text from {material_type.upper()} (as {extract_type.upper()}): {current_path}")
 
                     # Use universal extractor
                     from app.infrastructure.utils.text_extraction import extract_text_from_document
-                    full_text = extract_text_from_document(current_path, material_type)
+                    full_text = extract_text_from_document(current_path, extract_type)
 
                 # Normalize text
                 full_text = normalize_text(full_text)
@@ -189,9 +187,28 @@ def process_material_task(
 
                 raise
 
-    # Run async function
-    # Используем asyncio.run() для корректного управления event loop
-    return asyncio.run(async_process())
+    # Run async function in a new event loop
+    # This is necessary because Celery runs in a sync context
+    import nest_asyncio
+    try:
+        nest_asyncio.apply()
+    except:
+        pass
+    
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Create new loop if current one is running
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            return new_loop.run_until_complete(async_process())
+        else:
+            return loop.run_until_complete(async_process())
+    except RuntimeError:
+        # No event loop exists, create new one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(async_process())
 
 
 @celery_app.task(bind=True, base=DatabaseTask, name="generate_podcast")
@@ -224,7 +241,14 @@ def generate_podcast_task(self, material_id: str, user_id: str) -> dict:
                 logger.error(f"[generate_podcast] Error: {str(e)}")
                 raise
 
-    return asyncio.run(async_generate())
+    # Bug fix #2.4: Handle event loop properly
+    try:
+        loop = asyncio.get_running_loop()
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        return new_loop.run_until_complete(async_generate())
+    except RuntimeError:
+        return asyncio.run(async_generate())
 
 
 @celery_app.task(bind=True, base=DatabaseTask, name="generate_presentation")
@@ -257,7 +281,14 @@ def generate_presentation_task(self, material_id: str, user_id: str) -> dict:
                 logger.error(f"[generate_presentation] Error: {str(e)}")
                 raise
 
-    return asyncio.run(async_generate())
+    # Bug fix #2.4: Handle event loop properly
+    try:
+        loop = asyncio.get_running_loop()
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        return new_loop.run_until_complete(async_generate())
+    except RuntimeError:
+        return asyncio.run(async_generate())
 
 
 @celery_app.task(name="cleanup_old_attempts")
@@ -269,7 +300,7 @@ def cleanup_old_attempts_task() -> dict:
         dict с количеством удаленных записей
     """
     import asyncio
-    from datetime import datetime, timedelta
+    from datetime import datetime, timezone, timedelta
 
     logger.info("[cleanup_old_attempts] Starting cleanup")
 
@@ -284,4 +315,11 @@ def cleanup_old_attempts_task() -> dict:
             logger.info(f"[cleanup_old_attempts] Completed")
             return {"deleted_count": 0}
 
-    return asyncio.run(async_cleanup())
+    # Bug fix #2.4: Handle event loop properly
+    try:
+        loop = asyncio.get_running_loop()
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        return new_loop.run_until_complete(async_cleanup())
+    except RuntimeError:
+        return asyncio.run(async_cleanup())

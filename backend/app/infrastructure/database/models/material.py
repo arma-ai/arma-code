@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, DateTime, Enum, ForeignKey, Index
+from sqlalchemy import Column, String, Integer, Text, DateTime, Enum, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -11,6 +11,7 @@ from app.infrastructure.database.base import Base
 class MaterialType(str, enum.Enum):
     PDF = "pdf"
     YOUTUBE = "youtube"
+    ARTICLE = "article"
     DOCX = "docx"
     DOC = "doc"
     TXT = "txt"
@@ -69,8 +70,9 @@ class Material(Base):
     presentation_embed_url = Column(String(2000), nullable=True)  # Embed URL for preview (long JWT tokens)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
+    deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete
 
     # Relationships
     user = relationship("User", back_populates="materials")
@@ -86,6 +88,9 @@ class Material(Base):
     __table_args__ = (
         Index('idx_materials_user_type', 'user_id', 'type'),
         Index('idx_materials_status', 'processing_status'),
+        Index('idx_materials_deleted', 'deleted_at'),
+        Index('idx_materials_user_status', 'user_id', 'processing_status'),
+        Index('idx_materials_user_created', 'user_id', 'created_at'),
     )
 
     def __repr__(self):

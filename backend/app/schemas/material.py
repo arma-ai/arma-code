@@ -11,6 +11,7 @@ class MaterialType(str, Enum):
     """Material type enum."""
     PDF = "pdf"
     YOUTUBE = "youtube"
+    ARTICLE = "article"
 
 
 class ProcessingStatus(str, Enum):
@@ -25,6 +26,8 @@ class MaterialBase(BaseModel):
     """Base material schema."""
     title: str = Field(..., min_length=1, max_length=200)
     type: MaterialType
+
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class MaterialCreate(MaterialBase):

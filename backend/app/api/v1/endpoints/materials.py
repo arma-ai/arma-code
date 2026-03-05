@@ -36,6 +36,7 @@ from app.domain.services.material_processing_service import MaterialProcessingSe
 from app.domain.services.tutor_service import TutorService
 from app.domain.services.podcast_service import PodcastService
 from app.domain.services.presentation_service import PresentationService
+from app.infrastructure.ai.ai_tts_service import AITTSService
 from app.infrastructure.utils.file_storage import FileStorageService
 from app.infrastructure.utils.text_extraction import (
     extract_text_from_pdf,
@@ -247,6 +248,83 @@ async def create_material(
             processing_status=ProcessingStatus.PROCESSING
         )
 
+    elif material_type == MaterialType.ARTICLE:
+        if not source:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Source URL is required for Article type"
+            )
+
+        # Download HTML content from URL
+        logger.info(f"Downloading article from URL: {source}")
+        try:
+            async with httpx.AsyncClient(
+                timeout=30.0,
+                follow_redirects=True,
+                verify=False  # Disable SSL verification for external URLs
+            ) as client:
+                response = await client.get(source, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                })
+                response.raise_for_status()
+
+                # Get content
+                html_content = response.content
+                file_size = len(html_content)
+
+                # Validate that content is HTML
+                content_type = response.headers.get("content-type", "").lower()
+                if not (content_type.startswith("text/html") or b'<!DOCTYPE' in html_content[:100] or b'<html' in html_content[:100].lower()):
+                    logger.error(f"Downloaded content is not HTML. Content-Type: {content_type}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="URL does not point to valid HTML content"
+                    )
+
+                # Get filename from URL
+                from urllib.parse import urlparse, unquote
+                url_path = urlparse(source).path
+                file_name = unquote(url_path.split("/")[-1])
+                if not file_name or not file_name.endswith('.html'):
+                    file_name = f"{title[:50].replace(' ', '_')}.html"
+
+                # Save using file storage
+                user_dir = f"storage/materials/{current_user.id}"
+                os.makedirs(user_dir, exist_ok=True)
+                file_path = os.path.join(user_dir, file_name)
+
+                with open(file_path, "wb") as f:
+                    f.write(html_content)
+
+                logger.info(f"Downloaded article: {file_path}, size: {file_size} bytes")
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to download article: HTTP {e.response.status_code}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to download article: HTTP {e.response.status_code}"
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to download article: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to download article: {str(e)}"
+            )
+
+        new_material = Material(
+            user_id=current_user.id,
+            title=title,
+            type=material_type,
+            file_path=file_path,
+            file_name=file_name,
+            file_size=file_size,
+            source=source,
+            processing_status=ProcessingStatus.PROCESSING
+        )
+
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -268,6 +346,8 @@ async def create_material(
             task_kwargs["file_path"] = file_path
         elif material_type == MaterialType.YOUTUBE:
             task_kwargs["source"] = source
+        elif material_type == MaterialType.ARTICLE:
+            task_kwargs["file_path"] = file_path
 
         logger.info(f"Triggering Celery task for material {new_material.id}")
         task = process_material_task.apply_async(kwargs=task_kwargs)
@@ -546,6 +626,91 @@ async def clear_tutor_history(
     return {"message": "Chat history cleared successfully"}
 
 
+@router.post("/{material_id}/tutor/{message_id}/speak")
+async def tutor_message_speak(
+    material_id: UUID,
+    message_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Generate speech audio for a tutor message (TTS).
+    
+    Args:
+        material_id: Material ID
+        message_id: Tutor message ID
+        db: Database session
+        current_user: Current authenticated user
+        
+    Returns:
+        dict: Audio URL for playback
+        
+    Raises:
+        HTTPException: If message not found or TTS generation failed
+    """
+    await verify_material_owner(material_id, current_user, db)
+    
+    # Get tutor message
+    result = await db.execute(
+        select(TutorMessage).where(
+            TutorMessage.id == message_id,
+            TutorMessage.material_id == material_id
+        )
+    )
+    message = result.scalar_one_or_none()
+    
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tutor message not found"
+        )
+    
+    if not message.content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message has no content"
+        )
+    
+    try:
+        # Generate speech using Edge TTS
+        tts_service = AITTSService()
+        audio_path = await tts_service.text_to_speech(
+            text=message.content,
+            language=None,  # Auto-detect
+            gender="female",
+            rate="+0%",
+            pitch="+0Hz",
+        )
+        
+        if not audio_path:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate audio"
+            )
+        
+        # Build URL for frontend
+        audio_url = f"/storage/tts_audio/{os.path.basename(audio_path)}"
+        
+        logger.info(
+            f"[TTS] Generated speech for tutor message",
+            extra={"message_id": str(message_id), "audio_path": audio_path}
+        )
+        
+        return {
+            "audio_url": audio_url,
+            "message_id": str(message_id),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[TTS] Error generating speech: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"TTS generation failed: {str(e)}"
+        )
+
+
 @router.post("/{material_id}/process", response_model=MessageResponse)
 async def process_material(
     material_id: UUID,
@@ -585,12 +750,36 @@ async def process_material(
             detail="Material has no text to process. Upload a file or provide a source first."
         )
 
-    # TODO: Запустить background task через Celery
-    # For now, процессим синхронно (только для development!)
-    processing_service = MaterialProcessingService(db)
-    await processing_service.process_material(material_id, material.full_text)
+    # Dispatch to Celery for async processing (no longer blocks HTTP request)
+    try:
+        task_kwargs = {
+            "material_id": str(material_id),
+            "material_type": material.type.value,
+        }
+        if material.type == MaterialType.PDF:
+            task_kwargs["file_path"] = material.file_path
+        elif material.type == MaterialType.YOUTUBE:
+            task_kwargs["source"] = material.source
 
-    return {"message": "Material processing completed successfully"}
+        material.processing_status = ProcessingStatus.PROCESSING
+        material.processing_progress = 0
+        await db.commit()
+
+        task = process_material_task.apply_async(kwargs=task_kwargs)
+        logger.info(f"Dispatched Celery task {task.id} for material {material_id}")
+
+        return {"message": "Processing started", "task_id": str(task.id)}
+
+    except Exception as e:
+        logger.error(f"Failed to dispatch Celery task: {str(e)}")
+        material.processing_status = ProcessingStatus.FAILED
+        material.processing_error = f"Failed to start processing: {str(e)}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start processing: {str(e)}"
+        )
+
 
 
 @router.post("/{material_id}/retry", response_model=MessageResponse)

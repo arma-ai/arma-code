@@ -63,13 +63,15 @@ class SearchResponse(BaseModel):
     query: str = Field(..., description="Original search query")
     results: List[SearchResult] = Field(default=[], description="Search results")
     total_results: int = Field(default=0, description="Total number of results found")
+    ai_answer: Optional[str] = Field(None, description="AI-generated answer when no materials found")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "query": "machine learning basics",
                 "results": [],
-                "total_results": 0
+                "total_results": 0,
+                "ai_answer": "Machine learning is a subset of AI that..."
             }
         }
     )

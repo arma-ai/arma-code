@@ -1,7 +1,7 @@
 """Change correct_option from letter to full text
 
 Revision ID: change_correct_option
-Revises: 
+Revises: b2c3d4e5f6a7
 Create Date: 2024-12-22
 """
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = 'change_correct_option_text'
-down_revision = '69f9387fe939'
+down_revision = 'b2c3d4e5f6a7'
 branch_labels = None
 depends_on = None
 

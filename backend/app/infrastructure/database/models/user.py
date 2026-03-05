@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean
+from sqlalchemy import Column, String, DateTime, Boolean, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -23,8 +23,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
 
     # Relationships
     materials = relationship("Material", back_populates="user", cascade="all, delete-orphan")
@@ -32,3 +32,4 @@ class User(Base):
 
     def __repr__(self):
         return f"<User {self.email}>"
+

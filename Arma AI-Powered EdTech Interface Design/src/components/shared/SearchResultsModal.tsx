@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, FileText, Youtube, Globe, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
+import { X, FileText, Youtube, Globe, Loader2, Plus, ExternalLink, Search, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import type { SearchResult, SearchResultType } from '../../types/api';
@@ -9,7 +9,8 @@ interface SearchResultsModalProps {
   results: SearchResult[];
   loading: boolean;
   onClose: () => void;
-  onSelectResult: (result: SearchResult) => void;
+  onSelectResult: (result: SearchResult) => Promise<boolean | void>;
+  aiAnswer?: string;  // AI answer when no materials found
 }
 
 export function SearchResultsModal({ 
@@ -17,7 +18,8 @@ export function SearchResultsModal({
   results, 
   loading, 
   onClose, 
-  onSelectResult 
+  onSelectResult,
+  aiAnswer
 }: SearchResultsModalProps) {
   const [activeTab, setActiveTab] = useState<SearchResultType | 'all'>('all');
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -40,8 +42,11 @@ export function SearchResultsModal({
   const handleAddResult = async (result: SearchResult) => {
     setAddingId(result.url);
     try {
-      await onSelectResult(result);
-      toast.success(`Added "${result.title}" to your materials`);
+      const response = await onSelectResult(result);
+      // Only show success if the result was actually added (not rejected)
+      if (response !== false) {
+        toast.success(`Added "${result.title}" to your materials`);
+      }
     } catch (error) {
       toast.error('Failed to add material');
     } finally {
@@ -251,6 +256,57 @@ export function SearchResultsModal({
                 </div>
                 <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontWeight: 500 }}>No results found</p>
                 <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.875rem' }}>Try a different search term</p>
+              </div>
+            ) : aiAnswer ? (
+              // Show AI answer when no materials found
+              <div style={{
+                padding: '2rem',
+                borderRadius: '1rem',
+                border: '1px solid rgba(255, 138, 61, 0.2)',
+                backgroundColor: 'rgba(255, 138, 61, 0.05)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{
+                    width: '3rem',
+                    height: '3rem',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(255, 138, 61, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Sparkles size={20} style={{ color: 'rgba(255, 138, 61, 1)' }} />
+                  </div>
+                  <div>
+                    <h3 style={{
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.95)',
+                      margin: 0
+                    }}>AI Answer</h3>
+                    <p style={{
+                      fontSize: '0.75rem',
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      margin: 0
+                    }}>Generated answer when no materials found</p>
+                  </div>
+                </div>
+                <div style={{
+                  padding: '1rem',
+                  borderRadius: '0.75rem',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.6',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {aiAnswer}
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

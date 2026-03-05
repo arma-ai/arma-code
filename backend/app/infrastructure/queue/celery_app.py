@@ -31,9 +31,9 @@ celery_app.conf.update(
 
     # Task routing
     task_routes={
-        "app.infrastructure.queue.tasks.process_material": {"queue": "materials"},
-        "app.infrastructure.queue.tasks.generate_podcast": {"queue": "ai"},
-        "app.infrastructure.queue.tasks.generate_presentation": {"queue": "ai"},
+        "process_material": {"queue": "materials"},
+        "generate_podcast": {"queue": "ai"},
+        "generate_presentation": {"queue": "ai"},
     },
 
     # Rate limiting

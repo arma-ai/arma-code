@@ -1,8 +1,7 @@
-from sqlalchemy.ext.declarative import declarative_base
+# ✅ Новый импорт (SQLAlchemy 2.0)
+from sqlalchemy.orm import declarative_base
 
-# Base class for all SQLAlchemy models
 Base = declarative_base()
-
 
 # Import all models here so Alembic can detect them
 def import_models():

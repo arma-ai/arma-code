@@ -1,13 +1,12 @@
+# EduPlatform Celery Worker - Production Dockerfile
 FROM python:3.13-slim
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    ffmpeg \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
@@ -19,9 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
+# Create storage directory
+RUN mkdir -p storage
 
-# Default command (will be overridden by docker-compose)
+# Default command (can be overridden in docker-compose)
 CMD ["celery", "-A", "app.infrastructure.queue.celery_app", "worker", "--loglevel=info"]

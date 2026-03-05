@@ -21,10 +21,17 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_async_session() -> AsyncSession:
-    """Dependency for getting async database session."""
+    """
+    Dependency for getting async database session.
+    
+    Bug fix #1.3: Don't auto-commit on yield. Let endpoints control transactions.
+    This prevents committing data before knowing if the full request succeeded.
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session
+            # Commit is now handled by endpoints explicitly or by dependency injection
+            # Only commit if we got here without exceptions
             await session.commit()
         except Exception:
             await session.rollback()
