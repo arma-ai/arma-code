@@ -128,19 +128,19 @@ export function LandingPage({ onStart }: LandingPageProps) {
           </p>
 
           <motion.div
-            className="max-w-6xl mx-auto w-full pt-2 md:pt-4"
+            className="max-w-[800px] mx-auto w-full pt-2 md:pt-4"
             animate={{
               boxShadow: [
                 '0 0 0 rgba(255,140,66,0)',
-                '0 0 36px rgba(255,140,66,0.18)',
+                '0 0 34px rgba(255,140,66,0.16)',
                 '0 0 0 rgba(255,140,66,0)',
               ],
             }}
             transition={{ duration: 3.8, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <div className="relative rounded-[2rem] border border-[#FF8C42]/35 bg-[linear-gradient(95deg,rgba(9,9,12,0.95),rgba(22,13,9,0.92),rgba(6,9,16,0.95))] backdrop-blur-xl px-4 py-3 md:px-6 md:py-5 shadow-[0_0_0_1px_rgba(255,140,66,0.08),0_20px_70px_rgba(0,0,0,0.55)]">
-              <div className="flex items-center gap-3 md:gap-5">
-                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-[#FF8C42]/80 shrink-0" />
+            <div className="rounded-[2rem] p-[1px] shadow-[0_26px_70px_rgba(0,0,0,0.55)]" style={{ background: 'linear-gradient(110deg, rgba(255,255,255,0.50), rgba(255,255,255,0.15), rgba(255,255,255,0.35), rgba(255,255,255,0.10))' }}>
+              <div className="relative rounded-[calc(2rem-1px)] backdrop-blur-[20px] px-2.5 py-2.5 md:px-3 md:py-3 transition-shadow" style={{ background: 'linear-gradient(120deg, rgba(14,14,18,0.92), rgba(22,18,12,0.88), rgba(12,14,20,0.92))' }}>
+                <div className="flex items-center gap-2.5 md:gap-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -148,27 +148,30 @@ export function LandingPage({ onStart }: LandingPageProps) {
                   className="hidden"
                   onChange={handleFileSelect}
                 />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all"
+                  style={{ background: 'rgba(255,140,66,0.15)', border: '1.5px solid rgba(255,140,66,0.45)', color: '#FF8C42' }}
+                  title="Attach PDF"
+                >
+                  <Plus className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
                 <input
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleStart()}
                   placeholder="What do you want to learn?"
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-lg sm:text-2xl md:text-[2.6rem] text-white/92 placeholder:text-white/26 tracking-tight"
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-white pr-1 md:pr-3"
+                  style={{ fontSize: '20px', color: 'rgba(255,255,255,0.95)' }}
                 />
                 <div className="shrink-0 flex items-center gap-2 md:gap-3">
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-10 h-10 md:w-12 md:h-12 rounded-full text-white/80 hover:text-white hover:bg-white/8 transition-colors flex items-center justify-center"
-                    title="Attach PDF"
-                  >
-                    <Plus className="w-6 h-6" />
-                  </button>
-                  <button
-                    type="button"
                     onClick={handleStart}
-                    className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/7 border border-white/10 text-white hover:bg-white/14 hover:border-white/25 transition-all flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+                    className="w-12 h-12 md:w-14 md:h-14 rounded-full text-black transition-colors flex items-center justify-center"
+                    style={{ background: '#FF8C42', boxShadow: '0 0 24px rgba(255,140,66,0.45)' }}
                     title="Start learning"
                   >
                     <ArrowUpRight className="w-6 h-6 md:w-7 md:h-7" />
@@ -176,11 +179,12 @@ export function LandingPage({ onStart }: LandingPageProps) {
                 </div>
               </div>
             </div>
+            </div>
 
             {selectedFile && (
-              <div className="mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-white/75">
+              <div className="mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85">
                 <FileText className="w-4 h-4 text-[#FF8C42]" />
-                <span>{selectedFile.name}</span>
+                <span>Selected file: {selectedFile.name}</span>
                 <button
                   type="button"
                   onClick={() => setSelectedFile(null)}

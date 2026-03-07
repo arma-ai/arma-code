@@ -5,7 +5,7 @@ import logging
 from typing import List, Dict, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from app.infrastructure.database.models.material import (
     Material,
@@ -170,6 +170,11 @@ class MaterialProcessingService:
 
     async def _save_quiz(self, material_id: UUID, quiz_questions: List[Dict]):
         """Сохранить quiz вопросы в БД."""
+        # Для regenerate и повторной обработки не накапливаем дубликаты.
+        await self.session.execute(
+            delete(QuizQuestion).where(QuizQuestion.material_id == material_id)
+        )
+
         # Создать вопросы
         for q_data in quiz_questions:
             question = QuizQuestion(

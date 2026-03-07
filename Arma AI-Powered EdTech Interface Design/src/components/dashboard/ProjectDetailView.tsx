@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 import {
   useMaterial,
   useMaterialSummary,
-  useMaterialNotes,
   useFlashcards,
   useQuizQuestions,
   useTutorChat
@@ -23,30 +22,26 @@ import { PodcastTab } from './tabs/PodcastTab';
 import { SlidesTab } from './tabs/SlidesTab';
 import { VoiceChatTab } from './tabs/VoiceChatTab';
 
-import { ViewState } from '../../App';
-
 interface ProjectDetailViewProps {
   projectId?: string | null;
   onBack?: () => void;
-  onNavigate?: (view: ViewState) => void;
-  onSelectDeck?: (id: number) => void;
 }
 
-export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack, onNavigate, onSelectDeck }: ProjectDetailViewProps) {
+export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack }: ProjectDetailViewProps) {
   const { id: urlId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   // Use URL parameter if available, otherwise use prop
   const projectId = urlId || propProjectId;
+  const normalizedProjectId = projectId ?? null;
   const onBack = propOnBack || (() => navigate(-1));
-  const { material, loading: materialLoading, refetch: refetchMaterial } = useMaterial(projectId);
-  const { summary, loading: summaryLoading } = useMaterialSummary(projectId);
-  const { notes, loading: notesLoading } = useMaterialNotes(projectId);
-  const { flashcards, loading: flashcardsLoading } = useFlashcards(projectId);
-  const { questions, loading: quizLoading } = useQuizQuestions(projectId);
-  const { messages, sendMessage, sending, loading: chatLoading } = useTutorChat(projectId);
+  const { material, loading: materialLoading, refetch: refetchMaterial } = useMaterial(normalizedProjectId);
+  const { summary, loading: summaryLoading } = useMaterialSummary(normalizedProjectId);
+  const { flashcards, loading: flashcardsLoading } = useFlashcards(normalizedProjectId);
+  const { questions, loading: quizLoading } = useQuizQuestions(normalizedProjectId);
+  const { messages, sendMessage, sending, assistantTyping, loading: chatLoading } = useTutorChat(normalizedProjectId);
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides' | 'voice'>('chat');
   const [outlineOpen, setOutlineOpen] = useState(true);
 
   // Loading state for the entire component
@@ -172,6 +167,7 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
                 messages={messages}
                 sendMessage={sendMessage}
                 sending={sending}
+                assistantTyping={assistantTyping}
                 loading={chatLoading}
               />
             )}
@@ -187,8 +183,6 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
                 material={material}
                 flashcards={flashcards}
                 loading={flashcardsLoading}
-                onNavigate={onNavigate}
-                onSelectDeck={onSelectDeck}
                 navigate={navigate}
               />
             )}
@@ -365,10 +359,11 @@ interface ChatTabProps {
   messages: TutorMessage[];
   sendMessage: (message: string, context?: 'chat' | 'selection') => Promise<any>;
   sending: boolean;
+  assistantTyping: boolean;
   loading: boolean;
 }
 
-function ChatTab({ material, messages, sendMessage, sending, loading }: ChatTabProps) {
+function ChatTab({ material, messages, sendMessage, sending, assistantTyping, loading }: ChatTabProps) {
   const [input, setInput] = useState('');
 
   const handleSend = async () => {
@@ -417,6 +412,19 @@ function ChatTab({ material, messages, sendMessage, sending, loading }: ChatTabP
               </div>
             </div>
           ))
+        )}
+        {assistantTyping && (
+          <div className="flex gap-4 max-w-3xl mx-auto">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-primary/10 border-primary/20 text-primary">
+              <Sparkles size={14} />
+            </div>
+            <div className="p-4 rounded-2xl rounded-tl-none bg-white/5 border border-white/10 text-white/70 text-sm flex items-center gap-1.5">
+              <span className="sr-only">Assistant is typing</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce [animation-delay:120ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce [animation-delay:240ms]" />
+            </div>
+          </div>
         )}
       </div>
 
@@ -715,12 +723,10 @@ interface FlashcardsTabProps {
   material: Material;
   flashcards: Flashcard[];
   loading: boolean;
-  onNavigate?: (view: ViewState) => void;
-  onSelectDeck?: (id: number) => void;
   navigate: ReturnType<typeof useNavigate>;
 }
 
-function FlashcardsTab({ material, flashcards, loading, onNavigate, onSelectDeck, navigate }: FlashcardsTabProps) {
+function FlashcardsTab({ material, flashcards, loading, navigate }: FlashcardsTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">

@@ -271,8 +271,13 @@ export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', on
               className="flex-1 h-12 bg-transparent border-none outline-none text-base md:text-lg text-white placeholder:text-white/20 font-light pl-2 md:pl-0"
             />
             <div className="flex items-center gap-1">
-              <button onClick={onUpload} className="p-2.5 rounded-xl hover:bg-white/5 text-muted-foreground hover:text-white transition-colors" title="Attach file">
-                <Plus className="w-5 h-5" />
+              <button
+                onClick={onUpload}
+                className="h-10 px-3 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-black transition-colors flex items-center gap-1.5"
+                title="Add document"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-xs font-semibold hidden sm:inline">Add doc</span>
               </button>
               <button onClick={() => handleSearch()} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors">
                 <ArrowUpRight className="w-5 h-5" />
@@ -339,9 +344,9 @@ export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', on
             <p className="text-white/40 mb-4">No materials yet</p>
             <button
               onClick={onUpload}
-              className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20"
+              className="px-5 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 shadow-[0_0_25px_rgba(255,138,61,0.3)]"
             >
-              Upload your first material
+              Add your first document
             </button>
           </div>
         ) : (

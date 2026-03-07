@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, FileText, Youtube, Clock, Settings, LogOut, Plus, Search, Bell, Brain, Sparkles, Layers, GraduationCap, Globe, User, X, Check, CheckCircle2, AudioLines } from 'lucide-react';
+import { LayoutDashboard, FileText, Youtube, Settings, LogOut, Plus, Bell, Brain, Sparkles, GraduationCap, User, AudioLines } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import type { ViewState } from '../../App';
-import { AICore } from '../shared/AICore';
 import { useMaterials } from '../../hooks/useApi';
 import { toast } from 'sonner';
 
@@ -21,18 +20,11 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
   const { materials } = useMaterials();
   const recentProjects = materials.slice(0, 5); // Get latest 5 materials
   const [modelName, setModelName] = useState('Arma Neural 1.0');
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
 
   const handleModelChange = () => {
     const newModel = modelName === 'Arma Neural 1.0' ? 'Arma Quantum 2.0 (Beta)' : 'Arma Neural 1.0';
     setModelName(newModel);
     toast.success(`Model switched to ${newModel}`);
-  };
-
-  const handleToggleNotifications = () => {
-    setIsNotificationsOpen(!isNotificationsOpen);
-    if (!isNotificationsOpen) setUnreadCount(0);
   };
 
   const handleLogout = () => {
@@ -62,12 +54,12 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
 
         <button 
           onClick={onUpload}
-          className="group w-full py-2.5 px-4 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-medium hover:bg-white/10 hover:border-white/20 transition-all flex items-center justify-start gap-3 mb-8 mx-2 max-w-[calc(100%-16px)] backdrop-blur-sm shadow-sm"
+          className="group w-full py-3 px-4 bg-primary/15 border border-primary/30 text-white rounded-xl text-sm font-semibold hover:bg-primary hover:text-black hover:border-primary transition-all flex items-center justify-start gap-3 mb-8 mx-2 max-w-[calc(100%-16px)] backdrop-blur-sm shadow-[0_0_30px_rgba(255,138,61,0.18)]"
         >
-          <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors">
+          <div className="w-6 h-6 rounded-lg bg-primary/25 flex items-center justify-center text-primary group-hover:bg-black/10 group-hover:text-black transition-colors">
             <Plus className="w-3.5 h-3.5" />
           </div>
-          <span>New Thread</span>
+          <span>Add Document</span>
         </button>
 
         <nav className="space-y-1 flex-1 overflow-y-auto px-2 scrollbar-hide">
@@ -78,34 +70,16 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
             onClick={() => onNavigate('dashboard')}
           />
           <SidebarItem 
-            icon={<Clock size={18} />} 
-            label="Activity" 
-            active={currentView === 'activity'} 
-            onClick={() => onNavigate('activity')}
-          />
-          <SidebarItem 
             icon={<FileText size={18} />} 
             label="Library" 
             active={currentView === 'library'} 
             onClick={() => onNavigate('library')}
           />
           <SidebarItem 
-            icon={<Layers size={18} />} 
-            label="Flashcards" 
-            active={currentView === 'flashcards'} 
-            onClick={() => onNavigate('flashcards')}
-          />
-          <SidebarItem 
             icon={<GraduationCap size={18} />} 
             label="Exam Prep" 
             active={currentView === 'exam'} 
             onClick={() => onNavigate('exam')}
-          />
-          <SidebarItem
-            icon={<Globe size={18} />}
-            label="Languages"
-            active={currentView === 'languages'}
-            onClick={() => onNavigate('languages')}
           />
           <SidebarItem
             icon={<AudioLines size={18} />}
@@ -173,7 +147,6 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
         {/* MOBILE BOTTOM NAV */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0C0C0F] border-t border-white/10 z-50 flex items-center justify-around px-2">
            <MobileNavItem icon={<LayoutDashboard />} label="Home" active={currentView === 'dashboard'} onClick={() => onNavigate('dashboard')} />
-           <MobileNavItem icon={<Clock />} label="Activity" active={currentView === 'activity'} onClick={() => onNavigate('activity')} />
            <MobileNavItem icon={<FileText />} label="Library" active={currentView === 'library'} onClick={() => onNavigate('library')} />
            <MobileNavItem icon={<User />} label="Profile" active={currentView === 'profile'} onClick={() => onNavigate('profile')} />
            
@@ -223,76 +196,6 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
   );
 }
 
-function NotificationsPanel({ onClose }: { onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'ALL' | 'PROCESSING' | 'SYSTEM'>('ALL');
-
-  const notifications = [
-    { id: 1, type: 'success', title: 'Processing Complete', desc: 'Introduction to Psychology is ready.', time: '2m ago', icon: <CheckCircle2 size={16} className="text-emerald-400" /> },
-    { id: 2, type: 'system', title: 'System Update', desc: 'Arma Quantum 2.0 is now available.', time: '1h ago', icon: <Sparkles size={16} className="text-primary" /> },
-    { id: 3, type: 'processing', title: 'Processing...', desc: 'Analyzing "Advanced Calculus"...', time: '5m ago', icon: <Clock size={16} className="text-amber-400" /> },
-  ];
-
-  const filtered = activeTab === 'ALL' 
-    ? notifications 
-    : activeTab === 'PROCESSING' 
-      ? notifications.filter(n => n.type === 'processing') 
-      : notifications.filter(n => n.type === 'system');
-
-  return (
-    <div className="flex flex-col max-h-[500px]">
-      <div className="p-4 border-b border-white/5 flex items-center justify-between">
-         <h3 className="font-medium text-white">Notifications</h3>
-         <div className="flex items-center gap-3">
-             <button onClick={() => toast.success("Marked all as read")} className="text-[10px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors">Mark all read</button>
-             <button onClick={onClose} className="text-white/40 hover:text-white"><X size={16} /></button>
-         </div>
-      </div>
-      
-      <div className="flex items-center gap-1 p-2 border-b border-white/5">
-         {['ALL', 'PROCESSING', 'SYSTEM'].map(tab => (
-           <button 
-             key={tab}
-             onClick={() => setActiveTab(tab as any)}
-             className={`flex-1 py-1.5 text-[10px] font-bold tracking-wider rounded-lg transition-colors ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-           >
-             {tab}
-           </button>
-         ))}
-      </div>
-
-      <div className="overflow-y-auto p-2 space-y-1">
-         {filtered.length > 0 ? filtered.map(item => (
-           <div onClick={() => {toast.info("Navigating..."); onClose();}} key={item.id} className="p-3 rounded-xl hover:bg-white/5 transition-colors group relative cursor-pointer">
-              <div className="flex gap-3">
-                 <div className="mt-0.5">{item.icon}</div>
-                 <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                       <h4 className="text-xs font-medium text-white mb-0.5">{item.title}</h4>
-                       <span className="text-[10px] text-white/20">{item.time}</span>
-                    </div>
-                    <p className="text-xs text-white/50 leading-relaxed mb-2">{item.desc}</p>
-                    <div className="flex gap-2">
-                       <button onClick={(e) => {e.stopPropagation(); toast.info("Opening view...");}} className="px-3 py-1 bg-white/5 hover:bg-white/10 text-[10px] font-medium text-white rounded transition-colors">View</button>
-                       {item.type === 'system' && <button onClick={(e) => {e.stopPropagation(); toast.info("Updating...");}} className="px-3 py-1 bg-primary/10 hover:bg-primary/20 text-[10px] font-medium text-primary rounded transition-colors">Update</button>}
-                    </div>
-                 </div>
-              </div>
-           </div>
-         )) : (
-           <div className="py-8 text-center text-xs text-white/20">No notifications</div>
-         )}
-      </div>
-      
-      <div className="p-3 border-t border-white/5 bg-[#1A1A1E]">
-          <button onClick={() => {onClose(); toast.info("Opening Settings...");}} className="w-full py-2 flex items-center justify-center gap-2 text-xs text-white/40 hover:text-white transition-colors">
-              <Settings size={12} />
-              <span>Notification Settings</span>
-          </button>
-      </div>
-    </div>
-  );
-}
-
 function MobileNavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) {
   return (
     <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors ${active ? 'text-primary' : 'text-white/40'}`}>
@@ -326,11 +229,13 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode, 
   );
 }
 
-function RecentProjectItem({ type, title, meta, active, onClick }: { type: 'pdf' | 'youtube', title: string, meta: string, active: boolean, onClick?: () => void }) {
+function RecentProjectItem({ type, title, meta, active, onClick }: { type: string, title: string, meta: string, active: boolean, onClick?: () => void }) {
+  const isPdf = type === 'pdf';
+  const isYoutube = type === 'youtube';
   return (
     <div onClick={onClick} className={`group flex items-center gap-3 px-4 py-2 rounded-xl cursor-pointer transition-all duration-200 ${active ? 'bg-white/5' : 'hover:bg-white/5'}`}>
-       <div className={`w-6 h-6 rounded-lg flex items-center justify-center border border-white/5 ${type === 'pdf' ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'} ${active ? 'ring-1 ring-primary/20' : ''}`}>
-         {type === 'pdf' ? <FileText size={12} /> : <Youtube size={12} />}
+       <div className={`w-6 h-6 rounded-lg flex items-center justify-center border border-white/5 ${isPdf ? 'bg-blue-500/10 text-blue-400' : isYoutube ? 'bg-red-500/10 text-red-400' : 'bg-purple-500/10 text-purple-400'} ${active ? 'ring-1 ring-primary/20' : ''}`}>
+         {isYoutube ? <Youtube size={12} /> : <FileText size={12} />}
        </div>
        <div className="flex-1 min-w-0">
          <p className={`text-xs font-medium truncate transition-colors ${active ? 'text-white' : 'text-white/70 group-hover:text-white'}`}>{title}</p>

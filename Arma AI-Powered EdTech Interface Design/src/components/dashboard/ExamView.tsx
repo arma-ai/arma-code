@@ -480,6 +480,7 @@ function ExamSession({
   const [timeLeft, setTimeLeft] = useState(data.durationMinutes * 60);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [finishing, setFinishing] = useState(false);
+  const [timeExpired, setTimeExpired] = useState(false);
   const answersRef = useRef<Record<string, string>>({});
 
   const currentQuestion = data.questions[currentIndex];
@@ -506,7 +507,7 @@ function ExamSession({
   }, [answers]);
 
   useEffect(() => {
-    if (finishing || submitting) {
+    if (finishing || submitting || timeExpired) {
       return;
     }
 
@@ -514,6 +515,7 @@ function ExamSession({
       setTimeLeft((previous) => {
         if (previous <= 1) {
           window.clearInterval(timer);
+          setTimeExpired(true);
           void finishExam();
           return 0;
         }
@@ -522,7 +524,7 @@ function ExamSession({
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [finishing, submitting]);
+  }, [finishing, submitting, timeExpired]);
 
   const handleSelectOption = (option: string) => {
     setAnswers((prev) => ({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     CheckCircle2, ChevronRight, Play, Brain, Check, X, RotateCw, Loader2
@@ -95,6 +95,14 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
     const getCorrectAnswerText = (q: QuizQuestion): string => {
         if (!q) return '';
         return q.correct_option || '';
+    };
+
+    const getExplanationText = (q: QuizQuestion, correctAnswerText: string): string => {
+        const savedExplanation = q.explanation?.trim();
+        if (savedExplanation) {
+            return savedExplanation;
+        }
+        return `Correct answer: ${correctAnswerText}. This option best matches the source material.`;
     };
 
     const calculateScore = () => {
@@ -239,6 +247,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                     const userAnswerText = answers[idx];
                                     const correctText = getCorrectAnswerText(q);
                                     const isCorrectAnswer = userAnswerText === correctText;
+                                    const explanationText = getExplanationText(q, correctText);
 
                                     return (
                                         <div
@@ -266,6 +275,12 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                             <div className="flex gap-2">
                                                                 <span className="text-white/40">Correct:</span>
                                                                 <span className="text-emerald-400">{correctText}</span>
+                                                            </div>
+                                                        )}
+                                                        {!isCorrectAnswer && (
+                                                            <div className="mt-2 p-2.5 rounded-lg bg-white/5 border border-white/10">
+                                                                <span className="text-white/40 text-[10px] uppercase tracking-wider block mb-1">Explanation</span>
+                                                                <p className="text-white/70 leading-relaxed">{explanationText}</p>
                                                             </div>
                                                         )}
                                                     </div>
@@ -318,6 +333,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
 
         // Get correct answer TEXT
         const correctAnswerText = getCorrectAnswerText(question);
+        const explanationText = getExplanationText(question, correctAnswerText);
 
         // Check if selected answer is correct (compare by TEXT)
         const isCorrect = selectedAnswer === correctAnswerText;
@@ -526,31 +542,20 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                     {isCorrect ? (
                                                         <p>
                                                             Great job! You correctly identified the answer. This demonstrates your understanding of the material.
-                                                            {question.explanation && (
-                                                                <span className="block mt-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                                                                    <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Additional Info</span>
-                                                                    {question.explanation}
-                                                                </span>
-                                                            )}
+                                                            <span className="block mt-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                                                                <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Explanation</span>
+                                                                {explanationText}
+                                                            </span>
                                                         </p>
                                                     ) : (
                                                         <div>
                                                             <p className="mb-3">
-                                                                Don't worry! Learning from mistakes is part of the process. Here's why this answer is correct:
+                                                                Here's why this answer is correct:
                                                             </p>
-                                                            {question.explanation ? (
-                                                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                                                    <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Explanation</span>
-                                                                    <p className="text-white/80">{question.explanation}</p>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                                                    <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Tip</span>
-                                                                    <p className="text-white/60">
-                                                                        Review the section about "{question.question.split(' ').slice(0, 5).join(' ')}..." in your material to better understand this concept.
-                                                                    </p>
-                                                                </div>
-                                                            )}
+                                                            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                                                                <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Explanation</span>
+                                                                <p className="text-white/80">{explanationText}</p>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>

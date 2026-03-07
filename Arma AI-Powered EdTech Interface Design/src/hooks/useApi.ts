@@ -287,15 +287,18 @@ export function useTutorChat(materialId: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [assistantTyping, setAssistantTyping] = useState(false);
 
-  const fetchHistory = async () => {
+  const fetchHistoryInternal = async (showLoading: boolean) => {
     if (!materialId) {
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       setError(null);
       const data = await tutorApi.getHistory(materialId);
       setMessages(data.messages);
@@ -303,27 +306,51 @@ export function useTutorChat(materialId: string | null) {
       setError(err.response?.data?.detail || 'Failed to load chat history');
 
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
-  const sendMessage = async (message: string, context: 'chat' | 'selection' = 'chat') => {
-    if (!materialId) return;
+  const sendMessage = async (message: string, context: 'chat' | 'selection' = 'chat'): Promise<TutorMessage | void> => {
+    if (!materialId) {
+      return;
+    }
+
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      return;
+    }
+
+    const optimisticId = `tmp-user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const optimisticUserMessage: TutorMessage = {
+      id: optimisticId,
+      material_id: materialId,
+      role: 'user',
+      content: trimmedMessage,
+      context,
+      created_at: new Date().toISOString(),
+    };
 
     try {
+      setError(null);
       setSending(true);
-      const response = await tutorApi.sendMessage(materialId, { message, context });
+      setAssistantTyping(true);
+      setMessages((prev) => [...prev, optimisticUserMessage]);
 
-      // Refresh history to get both user message and AI response
-      await fetchHistory();
+      const assistantMessage = await tutorApi.sendMessage(materialId, { message: trimmedMessage, context });
+      setMessages((prev) => [...prev, assistantMessage]);
 
-      return response;
+      return assistantMessage;
     } catch (err: any) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
       setError(err.response?.data?.detail || 'Failed to send message');
 
       throw err;
     } finally {
       setSending(false);
+      setAssistantTyping(false);
+      void fetchHistoryInternal(false);
     }
   };
 
@@ -333,6 +360,7 @@ export function useTutorChat(materialId: string | null) {
     try {
       await tutorApi.clearHistory(materialId);
       setMessages([]);
+      setAssistantTyping(false);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to clear history');
 
@@ -341,14 +369,19 @@ export function useTutorChat(materialId: string | null) {
   };
 
   useEffect(() => {
-    fetchHistory();
+    void fetchHistoryInternal(true);
   }, [materialId]);
+
+  const fetchHistory = async () => {
+    await fetchHistoryInternal(true);
+  };
 
   return {
     messages,
     loading,
     error,
     sending,
+    assistantTyping,
     sendMessage,
     clearHistory,
     refetch: fetchHistory
