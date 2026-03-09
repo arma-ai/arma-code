@@ -1,0 +1,54 @@
+# Core Framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+alembic==1.14.0
+asyncpg==0.30.0  # PostgreSQL async driver
+psycopg2-binary==2.9.10  # PostgreSQL sync driver (for migrations)
+pgvector==0.3.6  # Vector similarity search
+
+# Pydantic
+pydantic==2.10.3
+pydantic-settings==2.6.1
+pydantic[email]==2.10.3
+
+# AI/ML
+openai==1.57.2
+langchain==0.3.13
+langchain-openai==0.2.12
+langchain-community==0.3.13
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.11.4
+PyMuPDF==1.25.1  # fitz - better PDF parser
+python-docx==1.1.2  # Word documents
+mammoth==1.8.0  # Word to HTML
+
+# YouTube
+youtube-transcript-api==0.6.3
+yt-dlp==2024.11.18
+
+# Audio processing (for Whisper)
+pydub==0.25.1
+pyaudioop==0.0.1  # Python 3.13+ compatibility for pydub (audioop replacement)
+
+# Background Jobs
+celery[redis]==5.4.0
+redis==5.2.1
+flower==2.0.1  # Celery monitoring
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.1
+
+# HTTP Client
+httpx==0.28.1
+aiohttp==3.11.10
+
+# Utils
+python-slugify==8.0.4

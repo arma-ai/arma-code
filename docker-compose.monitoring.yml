@@ -1,0 +1,161 @@
+# Docker Compose для мониторинга и инструментов разработки
+# Использование: docker compose -f docker-compose.monitoring.yml up -d
+
+services:
+  # Portainer - UI для управления Docker
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: eduplatform-portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - "9000:9000"
+    networks:
+      - eduplatform
+
+  # pgAdmin - UI для PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: eduplatform-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@eduplatform.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - eduplatform
+
+  # Redis Commander - UI для Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: eduplatform-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - eduplatform
+
+  # Prometheus - метрики
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: eduplatform-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - eduplatform
+
+  # Grafana - визуализация метрик
+  grafana:
+    image: grafana/grafana:latest
+    container_name: eduplatform-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: redis-datasource,postgres-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - eduplatform
+
+  # Loki - логи (опционально)
+  loki:
+    image: grafana/loki:latest
+    container_name: eduplatform-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - eduplatform
+
+  # Promtail - сборщик логов для Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: eduplatform-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - eduplatform
+
+  # Node Exporter - метрики хоста
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: eduplatform-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - eduplatform
+
+  # cAdvisor - метрики контейнеров
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: eduplatform-cadvisor
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - eduplatform
+
+volumes:
+  portainer_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+
+networks:
+  eduplatform:
+    external: true

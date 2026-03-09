@@ -1,0 +1,34 @@
+[Unit]
+Description=EduPlatform Docker Compose Application
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/eduplatform
+User=root
+
+# Переменные окружения
+Environment="COMPOSE_PROJECT_NAME=eduplatform"
+
+# Команда запуска
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+
+# Команда остановки
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+
+# Команда перезагрузки
+ExecReload=/usr/bin/docker compose -f docker-compose.prod.yml restart
+
+# Перезапуск при падении
+Restart=on-failure
+RestartSec=10s
+
+# Ограничения ресурсов
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
