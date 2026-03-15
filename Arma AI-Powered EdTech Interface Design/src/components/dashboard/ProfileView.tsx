@@ -19,8 +19,8 @@ export function ProfileView() {
                    key={tab}
                    onClick={() => setActiveTab(tab)}
                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                     activeTab === tab 
-                       ? 'bg-white/10 text-white' 
+                     activeTab === tab
+                       ? 'bg-white/10 text-white'
                        : 'text-white/40 hover:text-white hover:bg-white/5'
                    }`}
                  >
@@ -28,7 +28,7 @@ export function ProfileView() {
                    {activeTab === tab && <ChevronRight size={14} />}
                  </button>
                ))}
-               
+
                <div className="pt-4 mt-4 border-t border-white/5">
                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-colors">
                     <LogOut size={16} />
@@ -62,7 +62,7 @@ function AccountSettings() {
                 <p className="text-xs text-white/30">JPG or PNG. Max 1MB.</p>
              </div>
           </div>
-          
+
           <div className="grid gap-4">
              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -79,7 +79,7 @@ function AccountSettings() {
                 <input type="email" defaultValue="john.doe@example.com" className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-primary/50 outline-none transition-colors" />
              </div>
           </div>
-          
+
           <div className="mt-6 flex justify-end">
              <button onClick={() => toast.success('Profile updated')} className="px-6 py-2 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-colors">Save Changes</button>
           </div>
@@ -131,7 +131,7 @@ function AppearanceSettings() {
    return (
       <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-white/40 py-20">
          <Moon size={40} className="mx-auto mb-4 opacity-20" />
-         <p>Only Dark Mode is available in this prototype.</p>
+         <p>Only Dark Mode is available now.</p>
       </div>
    )
 }

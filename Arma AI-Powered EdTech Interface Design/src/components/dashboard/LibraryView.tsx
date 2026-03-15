@@ -62,7 +62,7 @@ export function LibraryView({ onProjectClick, onUpload }: LibraryViewProps) {
       <div className="flex flex-col items-center justify-center h-full">
         <p className="text-red-400 mb-4">{error}</p>
         <button
-          onClick={refetch}
+          onClick={() => refetch}
           className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20"
         >
           Retry
@@ -120,7 +120,7 @@ export function LibraryView({ onProjectClick, onUpload }: LibraryViewProps) {
                   </button>
                </div>
                <button
-                 onClick={refetch}
+                 onClick={() => refetch()}
                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#1A1A1E] border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors text-xs font-medium"
                >
                   <span>Refresh</span>

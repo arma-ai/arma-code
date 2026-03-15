@@ -5,12 +5,13 @@ import {
   ArrowLeft, FileText, Youtube, MessageSquare, Brain, CheckCircle2, Headphones, MonitorPlay,
   Play, Sparkles, Download, Share2, Layers,
   Link as LinkIcon, Edit3, X, Archive, Loader2,
-  AlertCircle, RotateCcw, AudioLines
+  AlertCircle, RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useMaterial,
   useMaterialSummary,
+  useMaterialNotes,
   useFlashcards,
   useQuizQuestions,
   useTutorChat
@@ -20,28 +21,31 @@ import type { Material, TutorMessage, Flashcard, MaterialSummary } from '../../t
 import { QuizTab } from './tabs/QuizTab';
 import { PodcastTab } from './tabs/PodcastTab';
 import { SlidesTab } from './tabs/SlidesTab';
-import { VoiceChatTab } from './tabs/VoiceChatTab';
+
+import { ViewState } from '../../App';
 
 interface ProjectDetailViewProps {
   projectId?: string | null;
   onBack?: () => void;
+  onNavigate?: (view: ViewState) => void;
+  onSelectDeck?: (id: number) => void;
 }
 
-export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack }: ProjectDetailViewProps) {
+export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack, onNavigate, onSelectDeck }: ProjectDetailViewProps) {
   const { id: urlId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   // Use URL parameter if available, otherwise use prop
   const projectId = urlId || propProjectId;
-  const normalizedProjectId = projectId ?? null;
   const onBack = propOnBack || (() => navigate(-1));
-  const { material, loading: materialLoading, refetch: refetchMaterial } = useMaterial(normalizedProjectId);
-  const { summary, loading: summaryLoading } = useMaterialSummary(normalizedProjectId);
-  const { flashcards, loading: flashcardsLoading } = useFlashcards(normalizedProjectId);
-  const { questions, loading: quizLoading } = useQuizQuestions(normalizedProjectId);
-  const { messages, sendMessage, sending, assistantTyping, loading: chatLoading } = useTutorChat(normalizedProjectId);
+  const { material, loading: materialLoading, refetch: refetchMaterial } = useMaterial(projectId);
+  const { summary, loading: summaryLoading } = useMaterialSummary(projectId);
+  const { notes, loading: notesLoading } = useMaterialNotes(projectId);
+  const { flashcards, loading: flashcardsLoading } = useFlashcards(projectId);
+  const { questions, loading: quizLoading } = useQuizQuestions(projectId);
+  const { messages, sendMessage, sending, loading: chatLoading } = useTutorChat(projectId);
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides' | 'voice'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides'>('chat');
   const [outlineOpen, setOutlineOpen] = useState(true);
 
   // Loading state for the entire component
@@ -63,7 +67,7 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
         <p className="text-white/40 mb-4">Material not found</p>
         <button
           onClick={onBack}
-          className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10"
+          className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 cursor-pointer"
         >
           Go Back
         </button>
@@ -77,7 +81,7 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
       {/* TOP HEADER */}
       <div className="h-14 border-b border-white/5 bg-[#121215]/80 backdrop-blur-md flex items-center justify-between px-4 z-20 shrink-0">
         <div className="flex items-center gap-4 overflow-hidden">
-          <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors">
+          <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors cursor-pointer">
             <ArrowLeft size={18} />
           </button>
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center border border-white/5 shrink-0 ${material.type === 'pdf' ? 'bg-blue-500/10 text-blue-400' : material.type === 'youtube' ? 'bg-red-500/10 text-red-400' : 'bg-purple-500/10 text-purple-400'}`}>
@@ -102,14 +106,13 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
             { id: 'quiz', label: 'Quiz', icon: <CheckCircle2 size={14} /> },
             { id: 'podcast', label: 'Podcast', icon: <Headphones size={14} /> },
             { id: 'slides', label: 'Slides', icon: <MonitorPlay size={14} /> },
-            { id: 'voice', label: 'Voice Chat', icon: <AudioLines size={14} /> },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === tab.id
                 ? 'bg-white/10 text-white shadow-inner'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-white/40 hover:text-white hover:bg-white/5 cursor-pointer'
                 }`}
             >
               {tab.icon}
@@ -134,7 +137,7 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
                 <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider">
                   Table of Contents
                 </h3>
-                <button onClick={() => setOutlineOpen(false)} className="text-white/20 hover:text-white"><X size={14} /></button>
+                <button onClick={() => setOutlineOpen(false)} className="text-white/20 hover:text-white cursor-pointer"><X size={14} /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
                 {activeTab === 'summary' && summary ? (
@@ -167,7 +170,6 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
                 messages={messages}
                 sendMessage={sendMessage}
                 sending={sending}
-                assistantTyping={assistantTyping}
                 loading={chatLoading}
               />
             )}
@@ -183,6 +185,8 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
                 material={material}
                 flashcards={flashcards}
                 loading={flashcardsLoading}
+                onNavigate={onNavigate}
+                onSelectDeck={onSelectDeck}
                 navigate={navigate}
               />
             )}
@@ -195,7 +199,6 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
             )}
             {activeTab === 'podcast' && <PodcastTab material={material} onRefetch={refetchMaterial} />}
             {activeTab === 'slides' && <SlidesTab material={material} onRefetch={refetchMaterial} />}
-            {activeTab === 'voice' && <VoiceChatTab material={material} />}
           </div>
         </div>
 
@@ -359,11 +362,10 @@ interface ChatTabProps {
   messages: TutorMessage[];
   sendMessage: (message: string, context?: 'chat' | 'selection') => Promise<any>;
   sending: boolean;
-  assistantTyping: boolean;
   loading: boolean;
 }
 
-function ChatTab({ material, messages, sendMessage, sending, assistantTyping, loading }: ChatTabProps) {
+function ChatTab({ material, messages, sendMessage, sending, loading }: ChatTabProps) {
   const [input, setInput] = useState('');
 
   const handleSend = async () => {
@@ -413,19 +415,6 @@ function ChatTab({ material, messages, sendMessage, sending, assistantTyping, lo
             </div>
           ))
         )}
-        {assistantTyping && (
-          <div className="flex gap-4 max-w-3xl mx-auto">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-primary/10 border-primary/20 text-primary">
-              <Sparkles size={14} />
-            </div>
-            <div className="p-4 rounded-2xl rounded-tl-none bg-white/5 border border-white/10 text-white/70 text-sm flex items-center gap-1.5">
-              <span className="sr-only">Assistant is typing</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce [animation-delay:120ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce [animation-delay:240ms]" />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Input Area */}
@@ -435,7 +424,7 @@ function ChatTab({ material, messages, sendMessage, sending, assistantTyping, lo
             <button
               key={suggestion}
               onClick={() => setInput(suggestion)}
-              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap cursor-pointer"
             >
               {suggestion}
             </button>
@@ -484,7 +473,7 @@ function TableOfContentsSummary({ summary }: { summary: string }) {
         <button
           key={section.id}
           onClick={() => toast.info(`Focused on: ${section.title}`)}
-          className="w-full text-left p-2 rounded-lg hover:bg-white/5 text-xs text-white/60 hover:text-white transition-colors group"
+          className="w-full text-left p-2 rounded-lg hover:bg-white/5 text-xs text-white/60 hover:text-white transition-colors group cursor-pointer"
         >
           <div className="flex items-start gap-2">
             <span className="text-white/20 font-mono shrink-0 mt-0.5">#</span>
@@ -723,10 +712,12 @@ interface FlashcardsTabProps {
   material: Material;
   flashcards: Flashcard[];
   loading: boolean;
+  onNavigate?: (view: ViewState) => void;
+  onSelectDeck?: (id: number) => void;
   navigate: ReturnType<typeof useNavigate>;
 }
 
-function FlashcardsTab({ material, flashcards, loading, navigate }: FlashcardsTabProps) {
+function FlashcardsTab({ material, flashcards, loading, onNavigate, onSelectDeck, navigate }: FlashcardsTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -814,7 +805,7 @@ function FlashcardsTab({ material, flashcards, loading, navigate }: FlashcardsTa
 
       <button
         onClick={() => navigate(`/dashboard/flashcards/${material.id}`)}
-        className="w-full px-8 py-4 bg-primary text-black rounded-xl font-bold text-lg hover:bg-primary/90 hover:scale-[1.02] transition-all shadow-[0_0_30px_rgba(255,138,61,0.2)] flex items-center justify-center gap-3"
+        className="w-full px-8 py-4 bg-primary text-black rounded-xl font-bold text-lg hover:bg-primary/90 hover:scale-[1.02] transition-all shadow-[0_0_30px_rgba(255,138,61,0.2)] flex items-center justify-center gap-3 cursor-pointer"
       >
         <Play size={20} fill="currentColor" />
         Start Review

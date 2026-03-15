@@ -51,7 +51,7 @@ export function ActivityView({ onProjectClick, onUpload }: ActivityViewProps) {
 
   return (
     <div className="flex flex-col min-h-full relative">
-      
+
       {/* HEADER */}
       <div className="flex-shrink-0 px-8 py-6 border-b border-white/5 bg-[#121215]/50 backdrop-blur-md z-20">
          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -59,7 +59,7 @@ export function ActivityView({ onProjectClick, onUpload }: ActivityViewProps) {
               <h1 className="text-2xl font-medium text-white tracking-tight mb-1">Activity</h1>
               <p className="text-sm text-white/40">Resume your learning and monitor processing</p>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full md:w-auto">
                <div className="relative group flex-1 md:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-white/60 transition-colors" />
@@ -81,7 +81,7 @@ export function ActivityView({ onProjectClick, onUpload }: ActivityViewProps) {
       </div>
 
       <div className="flex-1 flex flex-col md:flex-row">
-        
+
         {/* LEFT COLUMN - TIMELINE LIST */}
         <div className="flex-1 p-8 space-y-8">
 
@@ -114,7 +114,7 @@ export function ActivityView({ onProjectClick, onUpload }: ActivityViewProps) {
                ))}
              </div>
            )}
-           
+
            {filteredMaterials.length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
@@ -132,7 +132,7 @@ export function ActivityView({ onProjectClick, onUpload }: ActivityViewProps) {
 
         {/* RIGHT COLUMN - UTILITY RAIL */}
         <div className="w-full md:w-[340px] border-l border-white/5 bg-[#0C0C0F]/30 p-6 space-y-8 hidden xl:block">
-           
+
            {/* Block 1: Processing Queue */}
            <div>
              <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-4">Processing Queue</h3>
@@ -247,7 +247,7 @@ function MaterialRowCard({ material, onClick }: { material: Material, onClick: (
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="group relative flex items-center p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-white/10 transition-all duration-200 hover:shadow-lg overflow-hidden cursor-pointer w-full"
@@ -258,7 +258,7 @@ function MaterialRowCard({ material, onClick }: { material: Material, onClick: (
 
       {/* Content */}
       <div className="relative z-10 flex items-center w-full justify-between gap-4">
-         
+
          {/* LEFT SIDE: Info & Icon */}
          <div className="flex items-center gap-4 min-w-0 flex-1">
              {/* Icon */}
@@ -281,14 +281,14 @@ function MaterialRowCard({ material, onClick }: { material: Material, onClick: (
 
          {/* RIGHT SIDE: CTA SLOT */}
          <div className="flex items-center justify-end gap-3 pl-4 border-l border-white/5 shrink-0 relative h-10">
-             
+
              {/* Default State: Status & Main Button */}
              <div className="flex items-center justify-end gap-3 transition-opacity duration-200 group-hover:opacity-0">
                 <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusColor()}`}>
                   {getStatusLabel()}
                 </div>
                 <button className={`px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm whitespace-nowrap ${
-                  material.processing_status === 'completed' 
+                  material.processing_status === 'completed'
                     ? 'bg-white text-black'
                     : 'bg-white/5 text-white border border-white/10'
                 }`}>
@@ -312,7 +312,7 @@ function MaterialRowCard({ material, onClick }: { material: Material, onClick: (
 
 function ActionButton({ icon, tooltip, onClick }: { icon: React.ReactNode, tooltip?: string, onClick?: (e: React.MouseEvent) => void }) {
   return (
-    <button onClick={onClick} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors border border-transparent hover:border-white/5" title={tooltip}>
+    <button onClick={onClick} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors border border-transparent hover:border-white/5 cursor-pointer" title={tooltip}>
       {icon}
     </button>
   );

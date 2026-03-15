@@ -11,22 +11,19 @@ import type {
   Flashcard,
   CreateFlashcardRequest,
   QuizQuestion,
-  ExamQuizQuestion,
   QuizResult,
   SubmitQuizRequest,
-  QuizAttemptSaveRequest,
   TutorMessage,
   SendTutorMessageRequest,
   TutorHistoryResponse,
   ApiError,
-  MessageResponse,
   SearchRequest,
   SearchResponse,
 } from '../types/api';
 
 // Base configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-
+console.log(import.meta);
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -82,8 +79,9 @@ export const authApi = {
 // MATERIALS API
 // ============================================================================
 export const materialsApi = {
-  list: async (): Promise<Material[]> => {
-    const response = await apiClient.get<Material[]>('/materials');
+  list: async (projectId?: string): Promise<Material[]> => {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get<Material[]>('/materials', { params });
     return response.data;
   },
 
@@ -106,6 +104,83 @@ export const materialsApi = {
     }
 
     const response = await apiClient.post<Material>('/materials', formData);
+    return response.data;
+  },
+
+  // Batch upload (new)
+  uploadBatch: async (data: {
+    project_id?: string;
+    project_name?: string;
+    files?: File[];
+    youtube_urls?: string[];
+    link_urls?: string[];
+  }): Promise<{
+    batch_id: string;
+    project_id: string;
+    materials: Material[];
+    status: string;
+    total_files: number;
+  }> => {
+    const formData = new FormData();
+    
+    if (data.project_id) {
+      formData.append('project_id', data.project_id);
+    }
+    if (data.project_name) {
+      formData.append('project_name', data.project_name);
+    }
+
+    if (data.files && data.files.length > 0) {
+      data.files.forEach(file => {
+        formData.append('files', file);
+      });
+    }
+
+    if (data.youtube_urls && data.youtube_urls.length > 0) {
+      data.youtube_urls.forEach(url => {
+        formData.append('youtube_urls', url);
+      });
+    }
+
+    if (data.link_urls && data.link_urls.length > 0) {
+      data.link_urls.forEach(url => {
+        formData.append('link_urls', url);
+      });
+    }
+
+    const response = await apiClient.post('/materials/batch', formData);
+    return response.data;
+  },
+
+  getBatch: async (batchId: string): Promise<Material[]> => {
+    const response = await apiClient.get<Material[]>(`/materials/batch/${batchId}`);
+    return response.data;
+  },
+
+  // Project content (new)
+  getProjectContent: async (projectId: string): Promise<{
+    id: string;
+    project_id: string;
+    summary: string | null;
+    notes: string | null;
+    flashcards: Array<{ question: string; answer: string }> | null;
+    quiz: Array<any> | null;
+    processing_status: string;
+    processing_progress: number;
+    total_materials: number;
+    created_at: string;
+    updated_at: string;
+  }> => {
+    const response = await apiClient.get(`/materials/projects/${projectId}/content`);
+    return response.data;
+  },
+
+  regenerateProjectContent: async (projectId: string): Promise<{
+    status: string;
+    message: string;
+    project_id: string;
+  }> => {
+    const response = await apiClient.post(`/materials/projects/${projectId}/content/regenerate`);
     return response.data;
   },
 
@@ -208,8 +283,20 @@ export const tutorApi = {
     return response.data;
   },
 
+  // Project-wide chat (for "All Materials" mode)
+  sendProjectMessage: async (projectId: string, data: SendTutorMessageRequest): Promise<TutorMessage> => {
+    const response = await apiClient.post<TutorMessage>(`/materials/projects/${projectId}/tutor`, data);
+    return response.data;
+  },
+
   getHistory: async (materialId: string): Promise<TutorHistoryResponse> => {
     const response = await apiClient.get<TutorHistoryResponse>(`/materials/${materialId}/tutor/history`);
+    return response.data;
+  },
+
+  // Project-wide history
+  getProjectHistory: async (projectId: string): Promise<TutorHistoryResponse> => {
+    const response = await apiClient.get<TutorHistoryResponse>(`/materials/projects/${projectId}/tutor/history`);
     return response.data;
   },
 
@@ -266,22 +353,13 @@ export const quizApi = {
     return response.data.questions;
   },
 
-  getExamQuestions: async (materialId: string): Promise<ExamQuizQuestion[]> => {
-    const response = await apiClient.get<{ questions: ExamQuizQuestion[]; total: number }>(`/materials/${materialId}/quiz/exam`);
-    return response.data.questions;
-  },
-
   submit: async (data: SubmitQuizRequest): Promise<QuizResult> => {
     const response = await apiClient.post<QuizResult>('/quiz/attempt', data);
     return response.data;
   },
 
-  saveAttempt: async (data: QuizAttemptSaveRequest): Promise<void> => {
-    await apiClient.post('/quiz/attempts/save', data);
-  },
-
-  regenerate: async (materialId: string, count: number = 10): Promise<MessageResponse> => {
-    const response = await apiClient.post<MessageResponse>(`/materials/${materialId}/regenerate/quiz?count=${count}`);
+  regenerate: async (materialId: string): Promise<QuizQuestion[]> => {
+    const response = await apiClient.post<QuizQuestion[]>(`/materials/${materialId}/regenerate/quiz`);
     return response.data;
   },
 };
@@ -292,6 +370,85 @@ export const quizApi = {
 export const searchApi = {
   search: async (data: SearchRequest): Promise<SearchResponse> => {
     const response = await apiClient.post<SearchResponse>('/search', data);
+    return response.data;
+  },
+};
+
+// ============================================================================
+// PROJECTS API
+// ============================================================================
+export const projectsApi = {
+  list: async (): Promise<Array<{
+    id: string;
+    name: string;
+    created_at: string;
+    material_count: number;
+  }>> => {
+    const response = await apiClient.get('/projects');
+    return response.data;
+  },
+
+  get: async (projectId: string): Promise<{
+    id: string;
+    name: string;
+    created_at: string;
+    materials: Array<{
+      id: string;
+      title: string;
+      type: string;
+      processing_status: string;
+      processing_progress: number;
+      created_at: string;
+    }>;
+  }> => {
+    const response = await apiClient.get(`/projects/${projectId}`);
+    return response.data;
+  },
+
+  create: async (name: string): Promise<{
+    id: string;
+    name: string;
+    created_at: string;
+  }> => {
+    const response = await apiClient.post('/projects', null, {
+      params: { name },
+    });
+    return response.data;
+  },
+
+  delete: async (projectId: string): Promise<void> => {
+    await apiClient.delete(`/projects/${projectId}`);
+  },
+
+  getContent: async (projectId: string): Promise<{
+    id: string;
+    project_id: string;
+    summary: string | null;
+    notes: string | null;
+    flashcards: Array<{ question: string; answer: string }> | null;
+    quiz: Array<any> | null;
+    processing_status: string;
+    processing_progress: number;
+    total_materials: number;
+    created_at: string;
+    updated_at: string;
+  }> => {
+    const response = await apiClient.get(`/materials/projects/${projectId}/content`);
+    return response.data;
+  },
+
+  getMaterialContent: async (materialId: string): Promise<{
+    id: string;
+    material_id: string;
+    title: string;
+    summary: string | null;
+    notes: string | null;
+    flashcards: Array<{ question: string; answer: string }> | null;
+    quiz: Array<any> | null;
+    processing_status: string;
+    type: string;
+  }> => {
+    const response = await apiClient.get(`/materials/${materialId}/content`);
     return response.data;
   },
 };

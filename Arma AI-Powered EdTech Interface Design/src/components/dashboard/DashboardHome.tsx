@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Youtube, Clock, Sparkles, Plus, ArrowUpRight, Loader2, RefreshCw, RotateCcw, AlertCircle } from 'lucide-react';
+import { FileText, Youtube, Clock, Sparkles, Plus, ArrowUpRight, Loader2, RefreshCw, RotateCcw, AlertCircle, FolderOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AICore } from '../shared/AICore';
-import { useMaterials } from '../../hooks/useApi';
+import { useMaterials, useProjects } from '../../hooks/useApi';
 import { toast } from 'sonner';
 import { SearchResultsModal } from '../shared/SearchResultsModal';
 import { searchApi, materialsApi } from '../../services/api';
 import type { SearchResult } from '../../types/api';
+import { ProjectCard } from './ProjectCard';
 
 // Pool of learning suggestions organized by category
 const SUGGESTION_POOL = {
@@ -82,11 +83,10 @@ const getRandomSuggestions = (count: number = 3): string[] => {
 interface DashboardHomeProps {
   onMaterialClick: (id: string) => void;
   onUpload: () => void;
-  prefillQuery?: string;
-  onPrefillConsumed?: () => void;
+  onProjectClick?: (id: string) => void;
 }
 
-export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', onPrefillConsumed }: DashboardHomeProps) {
+export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: DashboardHomeProps) {
   const [inputValue, setInputValue] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,6 +96,11 @@ export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', on
   const [suggestions, setSuggestions] = useState<string[]>(() => getRandomSuggestions(3));
   const [suggestionKey, setSuggestionKey] = useState(0); // For animation reset
   const { materials, loading, refetch } = useMaterials();
+  const { projects, loading: projectsLoading, refetch: refetchProjects } = useProjects();
+
+  const handleProjectDelete = () => {
+    refetchProjects();
+  };
 
   // Rotate suggestions every 30 seconds
   useEffect(() => {
@@ -105,17 +110,6 @@ export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', on
     }, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    const preparedQuery = prefillQuery.trim();
-    if (!preparedQuery) {
-      return;
-    }
-
-    setInputValue(preparedQuery);
-    void handleSearch(preparedQuery);
-    onPrefillConsumed?.();
-  }, [prefillQuery]);
 
   // Manual refresh suggestions
   const refreshSuggestions = useCallback(() => {
@@ -271,13 +265,8 @@ export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', on
               className="flex-1 h-12 bg-transparent border-none outline-none text-base md:text-lg text-white placeholder:text-white/20 font-light pl-2 md:pl-0"
             />
             <div className="flex items-center gap-1">
-              <button
-                onClick={onUpload}
-                className="h-10 px-3 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-black transition-colors flex items-center gap-1.5"
-                title="Add document"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="text-xs font-semibold hidden sm:inline">Add doc</span>
+              <button onClick={onUpload} className="p-2.5 rounded-xl hover:bg-white/5 text-muted-foreground hover:text-white transition-colors" title="Attach file">
+                <Plus className="w-5 h-5" />
               </button>
               <button onClick={() => handleSearch()} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors">
                 <ArrowUpRight className="w-5 h-5" />
@@ -328,132 +317,55 @@ export function DashboardHome({ onMaterialClick, onUpload, prefillQuery = '', on
         </motion.div>
       </div>
 
-      {/* RECENT MATERIALS SECTION */}
+      {/* PROJECTS SECTION */}
       <div className="relative z-10 px-4 md:px-8 py-8 md:py-12">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg md:text-xl font-medium text-white/80">Recent materials</h2>
-          <button className="text-sm text-primary hover:underline">View all</button>
+          <div className="flex items-center gap-3">
+            <FolderOpen className="w-6 h-6 text-primary/70" />
+            <h2 className="text-lg md:text-xl font-medium text-white/80">Your Projects</h2>
+          </div>
+          <button
+            onClick={onUpload}
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+          >
+            <Plus size={14} />
+            New Project
+          </button>
         </div>
 
-        {loading ? (
+        {projectsLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
-        ) : recentMaterials.length === 0 ? (
+        ) : projects.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-white/5 rounded-2xl">
-            <p className="text-white/40 mb-4">No materials yet</p>
+            <FolderOpen className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-white/40 mb-4">No projects yet</p>
             <button
               onClick={onUpload}
-              className="px-5 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 shadow-[0_0_25px_rgba(255,138,61,0.3)]"
+              className="px-6 py-2.5 bg-primary text-black font-medium rounded-xl hover:bg-primary/90 transition-colors"
             >
-              Add your first document
+              Create your first project
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recentMaterials.map((material, i) => (
+            {projects.map((project, i) => (
               <motion.div
-                key={material.id}
+                key={project.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                onClick={() => onMaterialClick(material.id)}
-                className="group relative p-5 rounded-2xl border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all cursor-pointer overflow-hidden"
               >
-                {/* Progress bar for processing materials */}
-                {material.processing_status === 'processing' && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-white/5">
-                    <div
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${material.processing_progress}%` }}
-                    />
-                  </div>
-                )}
-
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 mb-4 ${material.type === 'pdf' ? 'bg-blue-500/10 text-blue-400' :
-                    material.type === 'youtube' ? 'bg-red-500/10 text-red-400' :
-                      'bg-purple-500/10 text-purple-400'
-                  }`}>
-                  {material.type === 'pdf' ? <FileText size={20} /> : <Youtube size={20} />}
-                </div>
-
-                <h3 className="text-base font-medium text-white/90 mb-2 line-clamp-2 group-hover:text-white transition-colors">
-                  {material.title}
-                </h3>
-
-                <div className="flex items-center gap-2 text-xs text-white/40">
-                  <Clock size={12} />
-                  <span>{new Date(material.created_at).toLocaleDateString()}</span>
-                </div>
-
-                {/* Processing status */}
-                {material.processing_status === 'processing' && material.processing_progress > 0 && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <Loader2 size={14} className="text-primary animate-spin" />
-                    <span className="text-xs text-primary">Processing {material.processing_progress}%</span>
-                  </div>
-                )}
-
-                {/* Stuck at 0% - show retry */}
-                {material.processing_status === 'processing' && material.processing_progress === 0 && (
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Loader2 size={14} className="text-primary animate-spin" />
-                      <span className="text-xs text-primary">Processing 0%</span>
-                    </div>
-                    <button
-                      onClick={(e) => handleRetryMaterial(e, material.id)}
-                      disabled={retryingMaterialId === material.id}
-                      className="flex items-center gap-1 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors disabled:opacity-50"
-                      title="Restart processing"
-                    >
-                      {retryingMaterialId === material.id ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <RotateCcw size={12} />
-                      )}
-                      Retry
-                    </button>
-                  </div>
-                )}
-
-                {/* Failed status - show error and retry */}
-                {material.processing_status === 'failed' && (
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-red-400">
-                      <AlertCircle size={14} />
-                      <span className="text-xs">Failed</span>
-                    </div>
-                    <button
-                      onClick={(e) => handleRetryMaterial(e, material.id)}
-                      disabled={retryingMaterialId === material.id}
-                      className="flex items-center gap-1 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors disabled:opacity-50"
-                      title="Retry processing"
-                    >
-                      {retryingMaterialId === material.id ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <RotateCcw size={12} />
-                      )}
-                      Retry
-                    </button>
-                  </div>
-                )}
-
-                {material.processing_status === 'completed' && (
-                  <span className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase">
-                    Ready
-                  </span>
-                )}
-
-                {/* Error badge in corner for failed materials */}
-                {material.processing_status === 'failed' && (
-                  <span className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 text-[10px] font-bold uppercase">
-                    Error
-                  </span>
-                )}
-
-                <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                <ProjectCard
+                  id={project.id}
+                  name={project.name}
+                  materialCount={project.material_count}
+                  createdAt={project.created_at}
+                  onClick={onProjectClick}
+                  onDelete={handleProjectDelete}
+                  onRefresh={refetchProjects}
+                />
               </motion.div>
             ))}
           </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Globe, BookOpen, Mic, Languages, Play, CheckCircle2, ChevronRight, Star, ArrowLeft } from 'lucide-react';
+import { Globe, BookOpen, Mic, Languages, Play, CheckCircle2, ChevronRight, Star, ArrowLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function LanguagesView() {
@@ -52,7 +52,7 @@ function LanguagesHome({ onStartSession }: { onStartSession: (type: string) => v
            <p className="text-xs text-white/30 text-right">45% complete • 12 day streak</p>
         </div>
 
-        <button 
+        <button
           onClick={() => toast.info('New Language modal opening...')}
           className="p-6 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 hover:bg-white/[0.04] hover:border-white/20 transition-all cursor-pointer flex items-center justify-center gap-3 text-white/40 hover:text-white"
         >
@@ -71,8 +71,8 @@ function LanguagesHome({ onStartSession }: { onStartSession: (type: string) => v
           { title: 'Short Reading', icon: <Languages size={18} />, time: '10 min' },
           { title: 'Speaking Practice', icon: <Mic size={18} />, time: '5 min' }
         ].map((item, i) => (
-          <div 
-            key={i} 
+          <div
+            key={i}
             onClick={() => onStartSession(item.title)}
             className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 cursor-pointer group transition-all"
           >
@@ -85,7 +85,7 @@ function LanguagesHome({ onStartSession }: { onStartSession: (type: string) => v
                    <span className="text-xs text-white/30">{item.time}</span>
                 </div>
              </div>
-             <button className="px-4 py-2 rounded-lg bg-white/5 text-xs text-white/60 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2">
+             <button className="cursor-pointer px-4 py-2 rounded-lg bg-white/5 text-xs text-white/60 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2">
                Start <ChevronRight size={14} />
              </button>
           </div>
@@ -122,7 +122,7 @@ function LanguageSession({ type, onFinish }: { type: string | null, onFinish: ()
              <h2 className="text-3xl md:text-4xl font-medium text-white mb-8">
                "Ich möchte ein Ticket kaufen."
              </h2>
-             
+
              <div className="flex gap-2 justify-center mb-8">
                 {['I', 'would like', 'to buy', 'a ticket'].map((word, i) => (
                    <button key={i} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors">
@@ -132,7 +132,7 @@ function LanguageSession({ type, onFinish }: { type: string | null, onFinish: ()
              </div>
           </div>
 
-          <button 
+          <button
             onClick={handleNext}
             className="px-8 py-3 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-colors"
           >
@@ -141,13 +141,4 @@ function LanguageSession({ type, onFinish }: { type: string | null, onFinish: ()
        </div>
     </div>
   );
-}
-
-function Plus({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  )
 }

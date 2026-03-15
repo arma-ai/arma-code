@@ -567,6 +567,13 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
         try:
             temp_dir = tempfile.mkdtemp()
             audio_file = download_youtube_audio(url, temp_dir)
+            
+            # Convert to MP3 for OpenAI Whisper compatibility
+            if not audio_file.endswith('.mp3'):
+                mp3_path = audio_file.rsplit('.', 1)[0] + '.mp3'
+                compress_audio(audio_file, mp3_path, '192k')
+                audio_file = mp3_path
+            
             full_text = transcribe_audio_with_whisper(audio_file)
 
             logger.info(

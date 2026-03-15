@@ -32,6 +32,8 @@ from app.schemas.material import (
     MaterialProcessingUpdate,
     TutorMessageRequest,
     TutorMessageResponse,
+    ProjectTutorMessageResponse,
+    ProjectTutorChatHistoryResponse,
     TutorChatHistoryResponse,
 )
 

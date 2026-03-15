@@ -4,7 +4,12 @@ import { toast } from 'sonner';
 import { materialsApi } from '../../../services/api';
 import type { Material } from '../../../types/api';
 
-export function SlidesTab({ material, onRefetch }: { material: Material; onRefetch: () => Promise<void> | void }) {
+export interface SlidesTabProps {
+    material: Material;
+    onRefetch: () => Promise<void> | void;
+}
+
+export function SlidesTab({ material, onRefetch }: SlidesTabProps) {
     const [isGenerating, setIsGenerating] = useState(false);
 
     const hasPresentation = material.presentation_url || material.presentation_embed_url;
@@ -19,7 +24,6 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
             await materialsApi.generatePresentation(material.id);
             toast.success('Presentation generated successfully!');
 
-            // Refresh material data and wait for it
             await onRefetch();
         } catch (error: any) {
             toast.error(error.response?.data?.detail || 'Failed to generate presentation');
@@ -28,7 +32,6 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
         }
     };
 
-    // Show loading state
     if (isGenerating || isGeneratingStatus) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -43,7 +46,6 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
         );
     }
 
-    // Show empty state / generate button
     if (!hasPresentation) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -63,7 +65,7 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
                 <button
                     onClick={handleGeneratePresentation}
                     disabled={isGenerating}
-                    className="px-6 py-3 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="px-6 py-3 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                     <Sparkles size={20} />
                     Generate Slides
@@ -72,10 +74,8 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
         );
     }
 
-    // Show presentation viewer
     return (
         <div className="h-full flex flex-col overflow-hidden">
-            {/* Header with actions */}
             <div className="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
                 <div>
                     <h2 className="text-lg font-medium text-white">Presentation</h2>
@@ -87,7 +87,7 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
                             href={material.presentation_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2 text-sm"
+                            className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2 text-sm cursor-pointer"
                         >
                             <Download size={16} />
                             Download
@@ -96,7 +96,7 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
                     <button
                         onClick={handleGeneratePresentation}
                         disabled={isGenerating}
-                        className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
+                        className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
                     >
                         <RotateCw size={16} />
                         Regenerate
@@ -104,7 +104,6 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
                 </div>
             </div>
 
-            {/* Presentation embed */}
             <div className="flex-1 p-4 overflow-hidden">
                 {material.presentation_embed_url ? (
                     <iframe
@@ -121,7 +120,7 @@ export function SlidesTab({ material, onRefetch }: { material: Material; onRefet
                             href={material.presentation_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-6 py-3 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2"
+                            className="px-6 py-3 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2 cursor-pointer"
                         >
                             <Play size={20} />
                             Open Presentation

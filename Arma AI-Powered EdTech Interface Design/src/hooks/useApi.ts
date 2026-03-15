@@ -1,15 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   materialsApi,
   flashcardsApi,
   quizApi,
-  tutorApi
+  tutorApi,
+  projectsApi
 } from '../services/api';
 import type {
   Material,
   Flashcard,
   QuizQuestion,
-  ExamQuizQuestion,
   TutorMessage,
   MaterialSummary,
   MaterialNotes
@@ -246,15 +246,21 @@ export function useQuizQuestions(materialId: string | null) {
 }
 
 /**
- * Hook для загрузки quiz вопросов в exam режиме (без correct_option)
+ * Hook для работы с tutor чатом
+ * @param materialId ID материала (для single material mode)
+ * @param projectId ID проекта (для all materials mode)
  */
-export function useExamQuizQuestions(materialId: string | null) {
-  const [questions, setQuestions] = useState<ExamQuizQuestion[]>([]);
+export function useTutorChat(materialId: string | null, projectId?: string | null) {
+  const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
 
-  const fetchQuestions = async () => {
-    if (!materialId) {
+  const isProjectMode = !!projectId && !materialId;
+
+  const fetchHistory = async () => {
+    if (!materialId && !projectId) {
       setLoading(false);
       return;
     }
@@ -262,126 +268,85 @@ export function useExamQuizQuestions(materialId: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await quizApi.getExamQuestions(materialId);
-      setQuestions(data);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load exam questions');
-      console.error('Error fetching exam questions:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchQuestions();
-  }, [materialId]);
-
-  return { questions, loading, error, refetch: fetchQuestions };
-}
-
-/**
- * Hook для работы с tutor чатом
- */
-export function useTutorChat(materialId: string | null) {
-  const [messages, setMessages] = useState<TutorMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [assistantTyping, setAssistantTyping] = useState(false);
-
-  const fetchHistoryInternal = async (showLoading: boolean) => {
-    if (!materialId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      if (showLoading) {
-        setLoading(true);
-      }
-      setError(null);
-      const data = await tutorApi.getHistory(materialId);
+      const data = isProjectMode
+        ? await tutorApi.getProjectHistory(projectId!)
+        : await tutorApi.getHistory(materialId!);
       setMessages(data.messages);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load chat history');
-
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
-  const sendMessage = async (message: string, context: 'chat' | 'selection' = 'chat'): Promise<TutorMessage | void> => {
-    if (!materialId) {
-      return;
-    }
-
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage) {
-      return;
-    }
-
-    const optimisticId = `tmp-user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const optimisticUserMessage: TutorMessage = {
-      id: optimisticId,
-      material_id: materialId,
-      role: 'user',
-      content: trimmedMessage,
-      context,
-      created_at: new Date().toISOString(),
-    };
+  const sendMessage = async (message: string, context: 'chat' | 'selection' = 'chat') => {
+    if (!materialId && !projectId) return;
 
     try {
-      setError(null);
       setSending(true);
-      setAssistantTyping(true);
-      setMessages((prev) => [...prev, optimisticUserMessage]);
+      setIsTyping(true);
 
-      const assistantMessage = await tutorApi.sendMessage(materialId, { message: trimmedMessage, context });
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Optimistically add user message to UI
+      const userMessage: TutorMessage = {
+        id: `temp-${Date.now()}`,
+        material_id: materialId || '',
+        role: 'user',
+        content: message,
+        context,
+        created_at: new Date().toISOString(),
+      };
 
-      return assistantMessage;
+      setMessages(prev => [...prev, userMessage]);
+
+      // Send message to API
+      const response = isProjectMode
+        ? await tutorApi.sendProjectMessage(projectId!, { message, context })
+        : await tutorApi.sendMessage(materialId!, { message, context });
+
+
+      // Refresh history to get AI response
+      await fetchHistory();
+
+      setIsTyping(false);
+
+      return response;
     } catch (err: any) {
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
       setError(err.response?.data?.detail || 'Failed to send message');
-
+      setIsTyping(false);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => !m.id?.startsWith('temp-')));
       throw err;
     } finally {
       setSending(false);
-      setAssistantTyping(false);
-      void fetchHistoryInternal(false);
     }
   };
 
   const clearHistory = async () => {
-    if (!materialId) return;
+    if (!materialId && !projectId) return;
 
     try {
-      await tutorApi.clearHistory(materialId);
+      if (isProjectMode) {
+        await tutorApi.clearProjectHistory(projectId!);
+      } else {
+        await tutorApi.clearHistory(materialId!);
+      }
       setMessages([]);
-      setAssistantTyping(false);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to clear history');
-
       throw err;
     }
   };
 
   useEffect(() => {
-    void fetchHistoryInternal(true);
-  }, [materialId]);
-
-  const fetchHistory = async () => {
-    await fetchHistoryInternal(true);
-  };
+    fetchHistory();
+  }, [materialId, projectId]);
 
   return {
     messages,
     loading,
     error,
     sending,
-    assistantTyping,
+    isTyping,
     sendMessage,
     clearHistory,
     refetch: fetchHistory
@@ -397,7 +362,7 @@ export function useCreateMaterial() {
 
   const createMaterial = async (data: {
     title: string;
-    material_type: 'pdf' | 'youtube';
+    material_type: 'pdf' | 'docx' | 'txt' | 'youtube';
     file?: File;
     source?: string;
   }) => {
@@ -440,4 +405,237 @@ export function useDeleteMaterial() {
   };
 
   return { deleteMaterial, deleting, error };
+}
+
+/**
+ * Hook для batch upload материалов
+ */
+export function useBatchUpload() {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
+
+  const uploadBatch = async (data: {
+    project_id?: string;
+    project_name?: string;
+    files?: File[];
+    youtube_urls?: string[];
+    link_urls?: string[];
+  }) => {
+    try {
+      setUploading(true);
+      setError(null);
+      const result = await materialsApi.uploadBatch(data);
+      setBatchId(result.batch_id);
+      return result;
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to upload materials');
+      throw err;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return { uploadBatch, uploading, error, batchId };
+}
+
+/**
+ * Hook для project content
+ */
+export function useProjectContent(projectId: string | null) {
+  const [content, setContent] = useState<{
+    id: string;
+    project_id: string;
+    summary: string | null;
+    notes: string | null;
+    flashcards: Array<{ question: string; answer: string }> | null;
+    quiz: Array<any> | null;
+    processing_status: string;
+    processing_progress: number;
+    total_materials: number;
+    created_at: string;
+    updated_at: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchContent = async () => {
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await materialsApi.getProjectContent(projectId);
+      setContent(data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load project content');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const regenerateContent = async () => {
+    if (!projectId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      await materialsApi.regenerateProjectContent(projectId);
+      await fetchContent();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to regenerate content');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchContent();
+  }, [projectId]);
+
+  // Auto-refresh if processing
+  useEffect(() => {
+    if (!content || content.processing_status !== 'processing') {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      fetchContent();
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [content?.processing_status]);
+
+  return {
+    content,
+    loading,
+    error,
+    refetch: fetchContent,
+    regenerate: regenerateContent,
+  };
+}
+
+/**
+ * Hook для списка проектов
+ */
+export function useProjects() {
+  const [projects, setProjects] = useState<Array<{
+    id: string;
+    name: string;
+    created_at: string;
+    material_count: number;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await projectsApi.list();
+      setProjects(data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  return { projects, loading, error, refetch: fetchProjects };
+}
+
+/**
+ * Hook для одного проекта
+ */
+export function useProject(projectId: string | null) {
+  const [project, setProject] = useState<{
+    id: string;
+    name: string;
+    created_at: string;
+    materials: Array<{
+      id: string;
+      title: string;
+      type: string;
+      processing_status: string;
+      processing_progress: number;
+      created_at: string;
+    }>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProject = async () => {
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await projectsApi.get(projectId);
+      setProject(data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProject();
+  }, [projectId]);
+
+  return { project, loading, error, refetch: fetchProject };
+}
+
+/**
+ * Hook для контента одного материала
+ */
+export function useMaterialContent(materialId: string | null) {
+  const [content, setContent] = useState<{
+    id: string;
+    material_id: string;
+    title: string;
+    summary: string | null;
+    notes: string | null;
+    flashcards: Array<{ question: string; answer: string }> | null;
+    quiz: Array<any> | null;
+    processing_status: string;
+    type: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchContent = useCallback(async () => {
+    if (!materialId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await materialsApi.getMaterialContent(materialId);
+      setContent(data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load material content');
+    } finally {
+      setLoading(false);
+    }
+  }, [materialId]);
+
+  useEffect(() => {
+    fetchContent();
+  }, [materialId, fetchContent]);
+
+  return { content, loading, error, refetch: fetchContent };
 }

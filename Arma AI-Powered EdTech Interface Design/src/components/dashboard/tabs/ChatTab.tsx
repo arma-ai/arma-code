@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { ArrowLeft, Sparkles, Loader2, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Material, TutorMessage } from '../../../types/api';
@@ -10,15 +12,20 @@ export interface ChatTabProps {
   sendMessage: (message: string, context?: 'chat' | 'selection') => Promise<any>;
   sending: boolean;
   loading: boolean;
+  isTyping?: boolean;
 }
 
 const DEBOUNCE_MS = 300;
 
-export function ChatTab({ material, messages, sendMessage, sending, loading }: ChatTabProps) {
+export function ChatTab({ material, messages, sendMessage, sending, loading, isTyping }: ChatTabProps) {
   const [input, setInput] = useState('');
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const lastSentRef = useRef(0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollCheckRef = useRef<NodeJS.Timeout>();
 
   const handleSend = async () => {
     if (!input.trim() || sending) return;
@@ -82,6 +89,32 @@ export function ChatTab({ material, messages, sendMessage, sending, loading }: C
     }
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const checkScroll = () => {
+    // Check if we're scrolled up from bottom of page
+    const distanceFromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+    const shouldShow = distanceFromBottom > 200;
+    console.log('[checkScroll] distanceFromBottom:', distanceFromBottom, 'showButton:', shouldShow);
+    setShowScrollButton(shouldShow);
+  };
+
+  // Scroll to bottom when messages change (only if already near bottom)
+  React.useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    
+    // Only auto-scroll if already near bottom
+    if (isNearBottom || messages.length === 0) {
+      scrollToBottom();
+    }
+  }, [messages, isTyping]);
+
   if (loading && messages.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -94,8 +127,24 @@ export function ChatTab({ material, messages, sendMessage, sending, loading }: C
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+    <div className="flex flex-col h-full relative">
+      <style>{`
+        @keyframes typing-bounce {
+          0%, 80%, 100% {
+            transform: translateY(0);
+            opacity: 0.4;
+          }
+          40% {
+            transform: translateY(-6px);
+            opacity: 1;
+          }
+        }
+      `}</style>
+      <div 
+        ref={messagesContainerRef}
+        onScroll={checkScroll}
+        className="flex-1 overflow-y-auto p-8 space-y-6"
+      >
          {messages.length === 0 ? (
            <div className="flex items-center justify-center h-full">
              <div className="text-center max-w-md">
@@ -107,34 +156,72 @@ export function ChatTab({ material, messages, sendMessage, sending, loading }: C
              </div>
            </div>
          ) : (
-           messages.map((msg, i) => (
-             <div key={msg.id || i} className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${msg.role === 'assistant' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-white/10 border-white/20 text-white'}`}>
-                  {msg.role === 'assistant' ? <Sparkles size={14} /> : <div className="text-xs font-bold">ME</div>}
-                </div>
-                <div className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'assistant' ? 'bg-white/5 text-white/90 rounded-tl-none' : 'bg-primary/10 text-white rounded-tr-none'}`}>
-                  <div className="flex items-start gap-3">
-                    <span className="flex-1">{msg.content}</span>
-                    {msg.role === 'assistant' && msg.id && (
-                      <button
-                        onClick={() => speakingId === msg.id ? handleStopSpeaking() : handleSpeak(msg)}
-                        disabled={!!speakingId}
-                        className={`shrink-0 p-1.5 rounded-lg transition-colors ${
-                          speakingId === msg.id
-                            ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                            : 'bg-white/5 text-white/40 hover:text-primary hover:bg-primary/10'
-                        }`}
-                        title={speakingId === msg.id ? 'Stop' : 'Listen'}
-                      >
-                        {speakingId === msg.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                      </button>
-                    )}
+           <>
+             {messages.map((msg, i) => (
+               <div key={msg.id || i} className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${msg.role === 'assistant' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-white/10 border-white/20 text-white'}`}>
+                    {msg.role === 'assistant' ? <Sparkles size={14} /> : <div className="text-xs font-bold">ME</div>}
                   </div>
-                </div>
-             </div>
-           ))
+                  <div className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'assistant' ? 'bg-white/5 text-white/90 rounded-tl-none' : 'bg-primary/10 text-white rounded-tr-none'}`}>
+                    <div className="flex items-start gap-3">
+                      {msg.role === 'assistant' ? (
+                        <div className="flex-1 markdown-content prose prose-invert prose-sm max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <span className="flex-1">{msg.content}</span>
+                      )}
+                      {msg.role === 'assistant' && msg.id && (
+                        <button
+                          onClick={() => speakingId === msg.id ? handleStopSpeaking() : handleSpeak(msg)}
+                          disabled={!!speakingId}
+                          className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+                            speakingId === msg.id
+                              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                              : 'bg-white/5 text-white/40 hover:text-primary hover:bg-primary/10'
+                          }`}
+                          title={speakingId === msg.id ? 'Stop' : 'Listen'}
+                        >
+                          {speakingId === msg.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+               </div>
+             ))}
+             
+             {/* Typing indicator */}
+             {isTyping && (
+               <div className="flex gap-4 max-w-3xl mx-auto">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-primary/10 border-primary/20 text-primary">
+                    <Sparkles size={14} />
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white/5 text-white/90 rounded-tl-none flex items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgb(255, 138, 61)', animation: 'typing-bounce 1.4s infinite' }}></span>
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgb(255, 138, 61)', animation: 'typing-bounce 1.4s infinite 0.15s' }}></span>
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgb(255, 138, 61)', animation: 'typing-bounce 1.4s infinite 0.3s' }}></span>
+                    </div>
+                  </div>
+               </div>
+             )}
+           </>
          )}
+         <div ref={messagesEndRef} />
       </div>
+
+      {/* Scroll to bottom button - show when there are messages to scroll */}
+      {messages.length > 3 && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-28 right-8 p-2 rounded-full bg-primary text-black shadow-lg hover:bg-primary/90 transition-all opacity-50 hover:opacity-100"
+          title="Scroll to bottom"
+        >
+          <ArrowLeft size={20} className="rotate-90" />
+        </button>
+      )}
 
       {/* Input Area */}
       <div className="p-6 shrink-0 max-w-3xl mx-auto w-full">

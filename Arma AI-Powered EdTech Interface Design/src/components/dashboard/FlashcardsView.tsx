@@ -105,7 +105,7 @@ function FlashcardsHome({ onMaterialClick }: { onMaterialClick: (id: string) => 
                        }`}>
                           {material.type === 'pdf' ? <FileText size={18} /> : <Youtube size={18} />}
                        </div>
-                       <button className="text-white/20 hover:text-white transition-colors">
+                       <button className="cursor-pointer text-white/20 hover:text-white transition-colors">
                           <MoreHorizontal size={16} />
                        </button>
                     </div>
@@ -151,7 +151,7 @@ function DeckDetail({ materialId, onBack, onStart }: { materialId: string, onBac
   return (
     <div className="flex flex-col h-full p-8 max-w-5xl mx-auto w-full">
       <div className="flex items-center gap-4 mb-8">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors">
+        <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors cursor-pointer">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-medium text-white">{material.title}</h1>
@@ -289,7 +289,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                   </button>
               </div>
           </div>
-      )
+      );
   }
 
   // Calculate visible stack (current + next 2)
@@ -318,7 +318,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
              </div>
           </div>
           <div className="flex items-center gap-2">
-             <button className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors">
+             <button className="cursor-pointer p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors">
                <Settings size={18} />
              </button>
           </div>
@@ -326,15 +326,15 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
 
        {/* PLAYER STAGE */}
        <div className="flex-1 flex flex-col items-center justify-center p-8 relative overflow-hidden">
-          
+
           {/* Card Stack Effect */}
           <div className="relative w-full max-w-xl aspect-[3/2] perspective-[1000px]">
-             
+
              <AnimatePresence>
              {stack.map((card) => {
                  const isTop = card.offset === 0;
                  return (
-                    <motion.div 
+                    <motion.div
                         key={card.id}
                         className="absolute inset-0 cursor-pointer"
                         style={{ zIndex: 30 - card.offset }}
@@ -347,11 +347,11 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                             y: isTop ? (direction !== 0 ? 50 : card.offset * 12) : card.offset * 12,
                             rotate: isTop ? direction * 5 : 0
                         }}
-                        exit={{ 
-                           x: direction * 500, 
-                           y: 200, 
-                           opacity: 0, 
-                           transition: { duration: 0.28, ease: "easeOut" } 
+                        exit={{
+                           x: direction * 500,
+                           y: 200,
+                           opacity: 0,
+                           transition: { duration: 0.28, ease: "easeOut" }
                         }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         onClick={() => isTop && setIsFlipped(!isFlipped)}
@@ -416,7 +416,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
 
           {/* Controls */}
           <div className="flex items-center gap-8 mt-12 z-40">
-             <button 
+             <button
                onClick={() => handleSwipe(-1)}
                disabled={direction !== 0}
                className="flex flex-col items-center gap-2 text-white/30 hover:text-red-400 transition-colors group"
@@ -427,7 +427,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                <span className="text-xs font-medium uppercase tracking-wide">Don't Know</span>
              </button>
 
-             <button 
+             <button
                onClick={() => setIsFlipped(!isFlipped)}
                disabled={direction !== 0}
                className="flex flex-col items-center gap-2 text-white/40 hover:text-white transition-colors group"
@@ -438,7 +438,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
                <span className="text-xs">Flip</span>
              </button>
 
-             <button 
+             <button
                onClick={() => handleSwipe(1)}
                disabled={direction !== 0}
                className="flex flex-col items-center gap-2 text-white/30 hover:text-emerald-400 transition-colors group"

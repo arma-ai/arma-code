@@ -31,10 +31,19 @@ def upgrade() -> None:
     """)
     
     op.execute("""
-        CREATE TRIGGER trg_materials_updated_at
-        BEFORE INSERT OR UPDATE ON materials
-        FOR EACH ROW
-        EXECUTE FUNCTION set_updated_at();
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_trigger
+                WHERE tgname = 'trg_materials_updated_at'
+            ) THEN
+                CREATE TRIGGER trg_materials_updated_at
+                BEFORE INSERT OR UPDATE ON materials
+                FOR EACH ROW
+                EXECUTE FUNCTION set_updated_at();
+            END IF;
+        END $$;
     """)
 
 

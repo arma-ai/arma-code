@@ -71,7 +71,7 @@ db-connect: ## Подключиться к PostgreSQL
 
 db-migrate: ## Применить миграции Alembic
 	@echo "$(BLUE)🔄 Применение миграций...$(NC)"
-	cd backend && alembic upgrade head
+	docker compose exec backend alembic upgrade head
 	@echo "$(GREEN)✓ Миграции применены$(NC)"
 
 db-migrate-create: ## Создать новую миграцию (make db-migrate-create msg="описание")
@@ -79,7 +79,7 @@ db-migrate-create: ## Создать новую миграцию (make db-migrat
 		echo "$(RED)❌ Укажи описание: make db-migrate-create msg='описание'$(NC)"; \
 		exit 1; \
 	fi
-	cd backend && alembic revision --autogenerate -m "$(msg)"
+	docker compose exec backend alembic revision --autogenerate -m "$(msg)"
 	@echo "$(GREEN)✓ Миграция создана$(NC)"
 
 db-reset: ## ОСТОРОЖНО: Удалить и пересоздать БД
@@ -88,7 +88,7 @@ db-reset: ## ОСТОРОЖНО: Удалить и пересоздать БД
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		docker compose down -v; \
-		docker compose up -d postgres redis; \
+		docker compose up -d postgres redis backend; \
 		sleep 5; \
 		make db-migrate; \
 		echo "$(GREEN)✓ БД пересоздана$(NC)"; \

@@ -1,0 +1,705 @@
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, FileText, Youtube, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, Folder, BookOpen, BrainCircuit, ClipboardList, Trash2, MessageSquare } from 'lucide-react';
+import { motion } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useProject, useProjectContent, useMaterialContent, useTutorChat } from '../hooks/useApi';
+import { toast } from 'sonner';
+import { projectsApi } from '../services/api';
+import { FlashcardsTab } from '../components/dashboard/tabs/FlashcardsTab';
+import { QuizTab } from '../components/dashboard/tabs/QuizTab';
+import { ChatTab } from '../components/dashboard/tabs/ChatTab';
+
+export function ProjectDetailView() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const { project, loading, refetch } = useProject(projectId || null);
+  const { content, loading: contentLoading } = useProjectContent(projectId || null);
+  const [activeTab, setActiveTab] = useState<'chat' | 'materials' | 'summary' | 'flashcards' | 'quiz'>('materials');
+  // Chat hook for project-level chat
+  const { messages: tutorMessages, sendMessage, sending, loading: chatLoading, isTyping } = useTutorChat(
+    null,  // No material ID - use project mode
+    projectId || null
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    
+    if (!confirm(`Are you sure you want to delete project "${project.name}"? This will permanently delete all materials and generated content.`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await projectsApi.delete(projectId!);
+      toast.success('Project deleted successfully');
+      
+      // Notify parent to refresh projects list
+      window.dispatchEvent(new CustomEvent('project-deleted', { detail: { projectId } }));
+      
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to delete project');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (!projectId) {
+    return null;
+  }
+
+  const getMaterialIcon = (type: string) => {
+    switch (type) {
+      case 'pdf':
+        return <FileText className="w-5 h-5" />;
+      case 'youtube':
+        return <Youtube className="w-5 h-5" />;
+      case 'article':
+        return <LinkIcon className="w-5 h-5" />;
+      default:
+        return <FileText className="w-5 h-5" />;
+    }
+  };
+
+  const getMaterialColor = (type: string) => {
+    switch (type) {
+      case 'pdf':
+        return 'bg-blue-500/10 text-blue-400';
+      case 'youtube':
+        return 'bg-red-500/10 text-red-400';
+      case 'article':
+        return 'bg-purple-500/10 text-purple-400';
+      default:
+        return 'bg-white/10 text-white';
+    }
+  };
+
+  const getStatusBadge = (status: string, progress: number) => {
+    if (status === 'completed') {
+      return (
+        <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-medium">
+          <CheckCircle size={12} />
+          Ready
+        </span>
+      );
+    }
+    if (status === 'processing') {
+      return (
+        <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">
+          <Loader2 size={12} className="animate-spin" />
+          Processing {progress}%
+        </span>
+      );
+    }
+    if (status === 'failed') {
+      return (
+        <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/10 text-red-400 text-xs font-medium">
+          <AlertCircle size={12} />
+          Failed
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-1 rounded-md bg-white/10 text-white/60 text-xs font-medium">
+        Queued
+      </span>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b border-white/10 bg-white/[0.02]">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="p-2 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-5 h-5 text-white/60" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Folder className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-white">{project?.name || 'Loading...'}</h1>
+                  <p className="text-sm text-white/40">
+                    {project?.materials.length || 0} materials
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleDeleteProject}
+              disabled={isDeleting || !project}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              <span className="text-sm font-medium">Delete Project</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'chat'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquare size={16} />
+                Chat
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('materials')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'materials'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText size={16} />
+                Materials
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('summary')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'summary'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen size={16} />
+                Summary
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('flashcards')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'flashcards'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BrainCircuit size={16} />
+                Flashcards
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('quiz')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'quiz'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <ClipboardList size={16} />
+                Quiz
+              </div>
+            </button>
+
+            {/* View Mode Toggle - for flashcards, quiz, and chat tabs */}
+            {(activeTab === 'flashcards' || activeTab === 'quiz' || activeTab === 'chat') && project && project.materials.length > 0 && (
+              <div className="ml-auto">
+                <button
+                  onClick={handleDeleteProject}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  Delete Project
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Materials Tab */}
+            {activeTab === 'materials' && project && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+              >
+                {project.materials.map((material) => (
+                  <div
+                    key={material.id}
+                    className="group p-5 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getMaterialColor(material.type)}`}>
+                        {getMaterialIcon(material.type)}
+                      </div>
+                      {getStatusBadge(material.processing_status, material.processing_progress)}
+                    </div>
+                    <h3 className="text-base font-medium text-white/90 mb-3 line-clamp-2">
+                      {material.title}
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs text-white/40">
+                      <FileText size={12} />
+                      <span className="uppercase">{material.type}</span>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* Chat Tab */}
+            {activeTab === 'chat' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="h-full"
+              >
+                {viewMode === 'single' && selectedMaterialId ? (
+                  <ChatTab
+                    material={project?.materials.find(m => m.id === selectedMaterialId) as any}
+                    messages={tutorMessages}
+                    sendMessage={sendMessage}
+                    sending={sending}
+                    loading={chatLoading}
+                    isTyping={isTyping}
+                  />
+                ) : viewMode === 'all' && projectId ? (
+                  // All Materials mode - chat about all materials in project
+                  <ChatTab
+                    material={{
+                      id: projectId,
+                      title: 'All Materials',
+                      type: 'mixed',
+                      processing_status: 'completed',
+                      processing_progress: 100,
+                      created_at: new Date().toISOString(),
+                      file_path: '',
+                      source_url: '',
+                      flashcards_count: content.flashcards?.length || 0,
+                      quiz_count: content.quiz?.length || 0,
+                      summary_status: content.summary ? 'completed' : 'pending',
+                      podcast_status: 'pending',
+                      presentation_status: 'pending',
+                    } as any}
+                    messages={tutorMessages}
+                    sendMessage={sendMessage}
+                    sending={sending}
+                    loading={chatLoading}
+                    isTyping={isTyping}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center max-w-md">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                        <MessageSquare className="w-8 h-8 text-primary" />
+                      </div>
+                      <h3 className="text-lg font-medium text-white mb-2">
+                        Select a Material to Chat
+                      </h3>
+                      <p className="text-white/40 mb-6">
+                        AI Tutor chat is available per material or for all materials in the project.
+                      </p>
+                      <button
+                        onClick={() => { setViewMode('single'); setSelectedMaterialId(project?.materials[0]?.id || null); }}
+                        className="px-6 py-3 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-all"
+                      >
+                        Switch to Single Material
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Summary Tab */}
+            {activeTab === 'summary' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="max-w-4xl space-y-6"
+              >
+                {contentLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                ) : viewMode === 'all' && content?.summary ? (
+                  <>
+                    {/* Summary Section */}
+                    <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <BookOpen className="w-4 h-4 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-semibold text-white">Summary (All Materials)</h2>
+                      </div>
+                      <div className="markdown-content text-white/70 leading-relaxed">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mt-6 mb-4" {...props} />,
+                            h2: ({node, ...props}) => <h2 className="text-xl font-bold text-white mt-5 mb-3" {...props} />,
+                            h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-white mt-4 mb-2" {...props} />,
+                            h4: ({node, ...props}) => <h4 className="text-base font-semibold text-white mt-3 mb-2" {...props} />,
+                            p: ({node, ...props}) => <p className="mb-4" {...props} />,
+                            strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                            em: ({node, ...props}) => <em className="italic text-white/80" {...props} />,
+                            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
+                            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
+                            li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                            blockquote: ({node, ...props}) => (
+                              <blockquote className="border-l-4 border-primary/50 pl-4 my-4 italic text-white/60" {...props} />
+                            ),
+                            code: ({node, inline, className, children, ...props}: any) => {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <pre className="bg-black/30 p-5 rounded-xl overflow-x-auto my-4 border border-white/8">
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                </pre>
+                              ) : (
+                                <code className="bg-primary/8 text-primary font-medium px-1.5 py-0.5 rounded text-sm inline-block" {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
+                            pre: ({node, ...props}) => <pre className="mb-4" {...props} />,
+                            hr: ({node, ...props}) => <hr className="border-white/10 my-6" {...props} />,
+                          }}
+                        >
+                          {content.summary}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+
+                    {/* Notes Section */}
+                    {content.notes && (
+                      <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-white">Key Notes</h2>
+                        </div>
+                        <div className="markdown-content text-white/70 leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mt-6 mb-4" {...props} />,
+                              h2: ({node, ...props}) => <h2 className="text-xl font-bold text-white mt-5 mb-3" {...props} />,
+                              h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-white mt-4 mb-2" {...props} />,
+                              h4: ({node, ...props}) => <h4 className="text-base font-semibold text-white mt-3 mb-2" {...props} />,
+                              p: ({node, ...props}) => <p className="mb-4" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                              em: ({node, ...props}) => <em className="italic text-white/80" {...props} />,
+                              ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
+                              li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                              blockquote: ({node, ...props}) => (
+                                <blockquote className="border-l-4 border-primary/50 pl-4 my-4 italic text-white/60" {...props} />
+                              ),
+                              code: ({node, inline, className, children, ...props}: any) => {
+                                const match = /language-(\w+)/.exec(className || '');
+                                return !inline && match ? (
+                                  <pre className="bg-black/30 p-5 rounded-xl overflow-x-auto my-4 border border-white/8">
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                ) : (
+                                  <code className="bg-primary/8 text-primary font-medium px-1.5 py-0.5 rounded text-sm inline-block" {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                              pre: ({node, ...props}) => <pre className="mb-4" {...props} />,
+                              hr: ({node, ...props}) => <hr className="border-white/10 my-6" {...props} />,
+                            }}
+                          >
+                            {content.notes}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                        <div className="text-sm text-white/40 mb-1">Materials</div>
+                        <div className="text-2xl font-semibold text-white">{content.total_materials}</div>
+                      </div>
+                      <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                        <div className="text-sm text-white/40 mb-1">Flashcards</div>
+                        <div className="text-2xl font-semibold text-white">{content.flashcards?.length || 0}</div>
+                      </div>
+                      <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                        <div className="text-sm text-white/40 mb-1">Quiz Questions</div>
+                        <div className="text-2xl font-semibold text-white">{content.quiz?.length || 0}</div>
+                      </div>
+                    </div>
+                  </>
+                ) : viewMode === 'single' && selectedMaterialId && materialContent ? (
+                  <>
+                    {/* Summary Section for Single Material */}
+                    <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                          <BookOpen className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-semibold text-white">Summary (Single Material)</h2>
+                          <p className="text-sm text-white/40 truncate max-w-md">{materialContent.title}</p>
+                        </div>
+                      </div>
+                      {materialContent.summary ? (
+                        <div className="markdown-content text-white/70 leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mt-6 mb-4" {...props} />,
+                              h2: ({node, ...props}) => <h2 className="text-xl font-bold text-white mt-5 mb-3" {...props} />,
+                              h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-white mt-4 mb-2" {...props} />,
+                              h4: ({node, ...props}) => <h4 className="text-base font-semibold text-white mt-3 mb-2" {...props} />,
+                              p: ({node, ...props}) => <p className="mb-4" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                              em: ({node, ...props}) => <em className="italic text-white/80" {...props} />,
+                              ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
+                              li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                              blockquote: ({node, ...props}) => (
+                                <blockquote className="border-l-4 border-blue-500/50 pl-4 my-4 italic text-white/60" {...props} />
+                              ),
+                              code: ({node, inline, className, children, ...props}: any) => (
+                                inline ? (
+                                  <code className="bg-blue-500/10 px-1.5 py-0.5 rounded text-sm text-blue-300 font-mono" {...props} />
+                                ) : (
+                                  <code className="block bg-black/30 p-4 rounded-lg my-4 overflow-x-auto text-sm font-mono text-white/80" {...props} />
+                                )
+                              ),
+                              pre: ({node, ...props}) => <pre className="mb-4" {...props} />,
+                              hr: ({node, ...props}) => <hr className="border-white/10 my-6" {...props} />,
+                            }}
+                          >
+                            {materialContent.summary}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="text-white/40 text-sm">No summary available for this material</p>
+                      )}
+                    </div>
+
+                    {/* Notes Section for Single Material */}
+                    {materialContent.notes && (
+                      <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-white">Key Notes</h2>
+                        </div>
+                        <div className="markdown-content text-white/70 leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mt-6 mb-4" {...props} />,
+                              h2: ({node, ...props}) => <h2 className="text-xl font-bold text-white mt-5 mb-3" {...props} />,
+                              h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-white mt-4 mb-2" {...props} />,
+                              h4: ({node, ...props}) => <h4 className="text-base font-semibold text-white mt-3 mb-2" {...props} />,
+                              p: ({node, ...props}) => <p className="mb-4" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                              em: ({node, ...props}) => <em className="italic text-white/80" {...props} />,
+                              ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
+                              li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                              blockquote: ({node, ...props}) => (
+                                <blockquote className="border-l-4 border-blue-500/50 pl-4 my-4 italic text-white/60" {...props} />
+                              ),
+                              code: ({node, inline, className, children, ...props}: any) => (
+                                inline ? (
+                                  <code className="bg-blue-500/10 px-1.5 py-0.5 rounded text-sm text-blue-300 font-mono" {...props} />
+                                ) : (
+                                  <code className="block bg-black/30 p-4 rounded-lg my-4 overflow-x-auto text-sm font-mono text-white/80" {...props} />
+                                )
+                              ),
+                              pre: ({node, ...props}) => <pre className="mb-4" {...props} />,
+                              hr: ({node, ...props}) => <hr className="border-white/10 my-6" {...props} />,
+                            }}
+                          >
+                            {materialContent.notes}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
+                    <BookOpen className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                    <p className="text-white/40">Summary is being generated...</p>
+                    <p className="text-white/30 text-sm mt-2">
+                      Status: {content?.processing_status || 'pending'}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Flashcards Tab */}
+            {activeTab === 'flashcards' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {(materialLoading || contentLoading) ? (
+                  <div className="flex items-center justify-center py-20 col-span-full">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                ) : viewMode === 'all' && content?.flashcards && content.flashcards.length > 0 ? (
+                  <FlashcardsTab
+                    material={{
+                      id: 'all',
+                      title: 'All Materials',
+                      type: 'mixed',
+                      processing_status: 'completed',
+                      processing_progress: 100,
+                      created_at: new Date().toISOString(),
+                      file_path: '',
+                      source_url: '',
+                      flashcards_count: content.flashcards.length,
+                      quiz_count: content.quiz?.length || 0,
+                      summary_status: content.summary ? 'completed' : 'pending',
+                      podcast_status: 'pending',
+                      presentation_status: 'pending',
+                    } as any}
+                    flashcards={content.flashcards}
+                    loading={contentLoading}
+                    viewMode="all"
+                  />
+                ) : viewMode === 'single' && selectedMaterialId ? (
+                  materialLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    </div>
+                  ) : materialContent?.flashcards && materialContent.flashcards.length > 0 ? (
+                    (() => {
+                      const material = project?.materials.find(m => m.id === selectedMaterialId);
+                      if (!material) return null;
+                      return (
+                        <FlashcardsTab
+                          material={material as any}
+                          flashcards={materialContent.flashcards}
+                          loading={false}
+                          viewMode="single"
+                        />
+                      );
+                    })()
+                  ) : (
+                    <div className="text-center py-20 col-span-full border border-dashed border-white/5 rounded-2xl">
+                      <BrainCircuit className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                      <p className="text-white/40">No flashcards available for this material</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center py-20 col-span-full border border-dashed border-white/5 rounded-2xl">
+                    <BrainCircuit className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                    <p className="text-white/40">Flashcards are being generated...</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Quiz Tab */}
+            {activeTab === 'quiz' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {(contentLoading || materialLoading) ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                ) : viewMode === 'single' && selectedMaterialId ? (
+                  // Single Material mode
+                  materialLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    </div>
+                  ) : materialContent?.quiz && materialContent.quiz.length > 0 ? (
+                    (() => {
+                      const material = project?.materials.find(m => m.id === selectedMaterialId);
+                      if (!material) return null;
+                      return (
+                        <QuizTab
+                          material={material as any}
+                          questions={materialContent.quiz}
+                          loading={false}
+                          viewMode="single"
+                        />
+                      );
+                    })()
+                  ) : (
+                    <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
+                      <ClipboardList className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                      <p className="text-white/40">No quiz available for this material</p>
+                    </div>
+                  )
+                ) : viewMode === 'all' && content?.quiz && content.quiz.length > 0 ? (
+                  // All Materials mode - use new QuizTab with combined data
+                  <QuizTab
+                    material={{
+                      id: 'all',
+                      title: 'All Materials',
+                      type: 'mixed',
+                      processing_status: 'completed',
+                      processing_progress: 100,
+                      created_at: new Date().toISOString(),
+                      file_path: '',
+                      source_url: '',
+                      flashcards_count: content.flashcards?.length || 0,
+                      quiz_count: content.quiz?.length || 0,
+                      summary_status: content.summary ? 'completed' : 'pending',
+                      podcast_status: 'pending',
+                      presentation_status: 'pending',
+                    } as any}
+                    questions={content.quiz || []}
+                    loading={contentLoading}
+                    viewMode="all"
+                  />
+                ) : (
+                  <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
+                    <ClipboardList className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                    <p className="text-white/40">Quiz is being generated...</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

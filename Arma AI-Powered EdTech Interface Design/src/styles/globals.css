@@ -1,5 +1,13 @@
 @custom-variant dark (&:is(.dark *));
 
+*,
+*::before,
+*::after{
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 :root {
   --font-size: 16px;
   

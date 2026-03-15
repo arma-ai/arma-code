@@ -1,53 +1,16 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import {
-  ArrowUpRight,
-  Brain,
-  FileText,
-  ChevronRight,
-  Upload,
-  Sparkles,
-  Plus,
-  Youtube,
-  MessageSquare,
-  CheckCircle2,
-  Headphones,
-  MonitorPlay,
-} from 'lucide-react';
+import { ArrowRight, Brain, Play, FileText, MessageSquare, Headphones, MonitorPlay, CheckCircle2, ChevronRight, Upload, Sparkles, Youtube, Check } from 'lucide-react';
 import { AICore } from '../shared/AICore';
+import { Header } from '../ui/header';
 
 interface LandingPageProps {
-  onStart: (payload?: { topic?: string; file?: File | null }) => void;
+  onStart: () => void;
 }
 
 export function LandingPage({ onStart }: LandingPageProps) {
-  const [topic, setTopic] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleStart = () => {
-    onStart({
-      topic,
-      file: selectedFile,
-    });
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    if (file.type !== 'application/pdf') {
-      return;
-    }
-    setSelectedFile(file);
-  };
-
   return (
-    <div
-      className="flex flex-col min-h-screen bg-[#050505] text-foreground overflow-hidden selection:bg-primary/20 selection:text-primary relative"
-      style={{ fontFamily: '"Sora", "Geist", "Inter", "Segoe UI", sans-serif' }}
-    >
+    <div className="flex flex-col min-h-screen bg-[#0C0C0F] text-foreground overflow-hidden font-sans selection:bg-primary/20 selection:text-primary relative">
       
       {/* GLOBAL ATMOSPHERE - Volumetric Light */}
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -63,138 +26,52 @@ export function LandingPage({ onStart }: LandingPageProps) {
       </div>
 
       {/* NAVIGATION - Merged with Environment */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-6 md:py-8 max-w-7xl mx-auto w-full flex items-center justify-between">
-        <div className="flex items-center gap-3 group cursor-pointer">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.1] flex items-center justify-center text-primary relative z-10 backdrop-blur-md shadow-inner">
-              <Brain className="w-5 h-5" />
-            </div>
-          </div>
-          <span className="text-xl font-medium tracking-tight text-white/90 group-hover:text-white transition-colors">arma</span>
-        </div>
-        
-        <div className="hidden md:flex items-center gap-8">
-          {['Features', 'Pricing', 'About'].map((item) => (
-            <button key={item} className="text-sm font-medium text-white/60 hover:text-white transition-colors relative group">
-              {item}
-              <span className="absolute -bottom-1 left-0 w-0 h-px bg-primary transition-all group-hover:w-full" />
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button onClick={() => onStart()} className="hidden md:block text-sm font-medium text-white/80 hover:text-white transition-colors">Log in</button>
-          <button 
-            onClick={handleStart}
-            className="group px-6 py-2.5 bg-primary/10 text-primary border border-primary/20 text-sm font-medium rounded-full hover:bg-primary hover:text-black hover:shadow-[0_0_25px_rgba(255,138,61,0.4)] transition-all flex items-center gap-2 backdrop-blur-sm"
-          >
-            Start Learning
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-      </nav>
+      <Header />
 
       {/* HERO SECTION - Center Focus */}
-      <section className="relative z-10 pt-36 md:pt-40 pb-24 md:pb-32 px-4 sm:px-6 flex flex-col items-center justify-center min-h-[90vh]">
+      <section className="relative z-10 pt-40 pb-32 px-6 flex flex-col items-center justify-center min-h-[90vh]">
         <motion.div 
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[48%] -z-10 opacity-90 pointer-events-none"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 opacity-80"
         >
           <div className="relative">
-            <div className="absolute inset-[-20%] bg-[#FF8C42]/25 blur-[90px] rounded-full animate-pulse duration-[4s]" />
-            <div className="absolute inset-[8%] bg-[#FF8C42]/20 blur-[50px] rounded-full animate-pulse duration-[3s]" />
+            <div className="absolute inset-0 bg-primary/20 blur-[60px] rounded-full animate-pulse duration-[4s]" />
             <AICore size="xl" className="opacity-90" />
           </div>
         </motion.div>
 
-        <motion.div
+        <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-center max-w-5xl mx-auto space-y-6 md:space-y-8 relative z-10"
+          className="text-center max-w-4xl mx-auto space-y-8 relative z-10"
         >
-          <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white leading-[1.05] drop-shadow-2xl">
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white leading-[1.1] drop-shadow-2xl">
             Unlock Your Best <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white/80 to-white/40">
               Learning With arma
             </span>
           </h1>
-
-          <p className="text-sm sm:text-base md:text-lg text-white/50 max-w-2xl mx-auto">
-            Type a topic or attach a PDF. After login, Arma continues exactly from your request.
+          
+          <p className="text-xl md:text-2xl text-white/60 font-light max-w-2xl mx-auto leading-relaxed">
+            Your ultimate study helper. Learn your way with flashcards, quizzes, podcasts, and presentations powered by built-in AI.
           </p>
 
-          <motion.div
-            className="max-w-[800px] mx-auto w-full pt-2 md:pt-4"
-            animate={{
-              boxShadow: [
-                '0 0 0 rgba(255,140,66,0)',
-                '0 0 34px rgba(255,140,66,0.16)',
-                '0 0 0 rgba(255,140,66,0)',
-              ],
-            }}
-            transition={{ duration: 3.8, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <div className="rounded-[2rem] p-[1px] shadow-[0_26px_70px_rgba(0,0,0,0.55)]" style={{ background: 'linear-gradient(110deg, rgba(255,255,255,0.50), rgba(255,255,255,0.15), rgba(255,255,255,0.35), rgba(255,255,255,0.10))' }}>
-              <div className="relative rounded-[calc(2rem-1px)] backdrop-blur-[20px] px-2.5 py-2.5 md:px-3 md:py-3 transition-shadow" style={{ background: 'linear-gradient(120deg, rgba(14,14,18,0.92), rgba(22,18,12,0.88), rgba(12,14,20,0.92))' }}>
-                <div className="flex items-center gap-2.5 md:gap-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all"
-                  style={{ background: 'rgba(255,140,66,0.15)', border: '1.5px solid rgba(255,140,66,0.45)', color: '#FF8C42' }}
-                  title="Attach PDF"
-                >
-                  <Plus className="w-5 h-5 md:w-6 md:h-6" />
-                </button>
-                <input
-                  type="text"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-                  placeholder="What do you want to learn?"
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-white pr-1 md:pr-3"
-                  style={{ fontSize: '20px', color: 'rgba(255,255,255,0.95)' }}
-                />
-                <div className="shrink-0 flex items-center gap-2 md:gap-3">
-                  <button
-                    type="button"
-                    onClick={handleStart}
-                    className="w-12 h-12 md:w-14 md:h-14 rounded-full text-black transition-colors flex items-center justify-center"
-                    style={{ background: '#FF8C42', boxShadow: '0 0 24px rgba(255,140,66,0.45)' }}
-                    title="Start learning"
-                  >
-                    <ArrowUpRight className="w-6 h-6 md:w-7 md:h-7" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            </div>
-
-            {selectedFile && (
-              <div className="mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85">
-                <FileText className="w-4 h-4 text-[#FF8C42]" />
-                <span>Selected file: {selectedFile.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedFile(null)}
-                  className="text-white/50 hover:text-white"
-                >
-                  remove
-                </button>
-              </div>
-            )}
-          </motion.div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8">
+            <button 
+              onClick={onStart}
+              className="w-full sm:w-auto px-10 py-4 bg-white text-black text-lg font-bold rounded-full hover:bg-white/90 transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2 relative overflow-hidden group"
+            >
+              <span className="relative z-10 flex items-center gap-2">Start Learning <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            </button>
+            
+            <button className="w-full sm:w-auto px-10 py-4 bg-white/5 text-white border border-white/10 text-lg font-medium rounded-full hover:bg-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-2 backdrop-blur-md">
+              Learn more
+            </button>
+          </div>
         </motion.div>
 
         {/* Scroll Indicator */}

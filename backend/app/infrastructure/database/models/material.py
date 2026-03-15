@@ -34,9 +34,11 @@ class Material(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    batch_id = Column(UUID(as_uuid=True), nullable=True, index=True)  # Groups materials uploaded together
 
     title = Column(String(200), nullable=False)
-    type = Column(Enum(MaterialType), nullable=False, index=True)
+    type = Column(Enum(MaterialType, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True)
 
     # PDF specific
     file_path = Column(String(500), nullable=True)
@@ -76,11 +78,13 @@ class Material(Base):
 
     # Relationships
     user = relationship("User", back_populates="materials")
+    project = relationship("Project", back_populates="materials")
     summary = relationship("MaterialSummary", back_populates="material", uselist=False, cascade="all, delete-orphan")
     notes = relationship("MaterialNotes", back_populates="material", uselist=False, cascade="all, delete-orphan")
     flashcards = relationship("Flashcard", back_populates="material", cascade="all, delete-orphan")
     quiz_questions = relationship("QuizQuestion", back_populates="material", cascade="all, delete-orphan")
     quiz_attempts = relationship("QuizAttempt", back_populates="material", cascade="all, delete-orphan")
+    chunks = relationship("MaterialChunk", back_populates="material", cascade="all, delete-orphan")
     embeddings = relationship("MaterialEmbedding", back_populates="material", cascade="all, delete-orphan")
     tutor_messages = relationship("TutorMessage", back_populates="material", cascade="all, delete-orphan")
 
@@ -131,6 +135,54 @@ class TutorMessage(Base):
 
     material = relationship("Material", back_populates="tutor_messages")
 
-    __table_args__ = (
-        Index('idx_tutor_messages_material_created', 'material_id', 'created_at'),
+
+class ProjectTutorMessage(Base):
+    __tablename__ = "project_tutor_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # 'user' or 'assistant'
+    content = Column(Text, nullable=False)
+    context = Column(String(50), default='chat')  # 'chat' or 'selection'
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    project = relationship("Project", back_populates="tutor_messages")
+
+
+class ProjectContent(Base):
+    """Unified AI-generated content for a project (all materials combined)."""
+    __tablename__ = "project_contents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    
+    # AI-generated content
+    summary = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    flashcards = Column(JSONB, nullable=True)  # [{question, answer}, ...]
+    quiz = Column(JSONB, nullable=True)  # [{question, option_a, option_b, option_c, option_d, correct_option}, ...]
+    
+    # Processing metadata
+    processing_status = Column(
+        Enum(ProcessingStatus),
+        default=ProcessingStatus.QUEUED,
+        nullable=False,
+        index=True
     )
+    processing_progress = Column(Integer, default=0)  # 0-100
+    processing_error = Column(Text, nullable=True)
+    total_materials = Column(Integer, default=0)  # Count of materials in batch
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
+    
+    # Relationships
+    project = relationship("Project", back_populates="content")
+    
+    __table_args__ = (
+        Index('idx_project_contents_project_status', 'project_id', 'processing_status'),
+    )
+    
+    def __repr__(self):
+        return f"<ProjectContent project_id={self.project_id} status={self.processing_status}>"

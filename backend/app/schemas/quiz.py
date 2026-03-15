@@ -14,7 +14,6 @@ class QuizQuestionBase(BaseModel):
     option_c: str = Field(..., min_length=1)
     option_d: str = Field(..., min_length=1)
     correct_option: str = Field(..., min_length=1)  # Full text of correct answer
-    explanation: str | None = Field(default=None, min_length=1)
 
 
 class QuizQuestionCreate(QuizQuestionBase):
@@ -30,8 +29,7 @@ class QuizQuestionCreate(QuizQuestionBase):
                 "option_b": "A programming language",
                 "option_c": "A framework",
                 "option_d": "A database",
-                "correct_option": "A programming language",
-                "explanation": "Python is a general-purpose programming language used to build software.",
+                "correct_option": "A programming language"
             }
         }
     )
@@ -67,7 +65,6 @@ class QuizQuestionResponse(TimestampSchema):
 class QuizQuestionWithAnswerResponse(QuizQuestionResponse):
     """Schema for quiz question response with correct answer (for admin/results)."""
     correct_option: str  # Full text of correct answer
-    explanation: str | None = None
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -81,7 +78,6 @@ class QuizQuestionWithAnswerResponse(QuizQuestionResponse):
                 "option_c": "A framework",
                 "option_d": "A database",
                 "correct_option": "A programming language",
-                "explanation": "Python is a programming language, not a framework or database.",
                 "created_at": "2024-01-01T00:00:00"
             }
         }
@@ -136,21 +132,17 @@ class QuizAnswerRequest(BaseModel):
 class QuizAnswerResponse(BaseModel):
     """Schema for quiz answer result."""
     question_id: UUID
-    question_text: str
     is_correct: bool
     correct_option: str  # Full text of correct answer
     selected_option: str  # Full text of selected answer
-    explanation: str
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "question_id": "123e4567-e89b-12d3-a456-426614174000",
-                "question_text": "What is Python?",
                 "is_correct": True,
                 "correct_option": "A programming language",
-                "selected_option": "A programming language",
-                "explanation": "Python is a programming language widely used for software development.",
+                "selected_option": "A programming language"
             }
         }
     )
@@ -166,7 +158,7 @@ class QuizAttemptRequest(BaseModel):
                 "answers": [
                     {
                         "question_id": "123e4567-e89b-12d3-a456-426614174000",
-                        "selected_option": "A programming language"
+                        "selected_option": "b"
                     }
                 ]
             }
@@ -201,7 +193,6 @@ class QuizAttemptAnswerDetail(BaseModel):
     selected: str  # Full text of selected answer
     correct: bool
     correct_option: str  # Full text of correct answer
-    explanation: str | None = None
 
 
 class QuizAttemptSaveRequest(BaseModel):
@@ -232,8 +223,7 @@ class QuizAttemptSaveRequest(BaseModel):
                         "question_id": "123e4567-e89b-12d3-a456-426614174001",
                         "selected": "A programming language",
                         "correct": True,
-                        "correct_option": "A programming language",
-                        "explanation": "Python is a language used to write programs.",
+                        "correct_option": "A programming language"
                     }
                 ]
             }

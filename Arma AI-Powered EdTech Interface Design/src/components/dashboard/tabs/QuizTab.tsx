@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     CheckCircle2, ChevronRight, Play, Brain, Check, X, RotateCw, Loader2
@@ -10,59 +10,28 @@ export interface QuizTabProps {
     material: Material;
     questions: QuizQuestion[];
     loading: boolean;
-}
-
-// Shuffle array helper
-function shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
+    viewMode?: 'all' | 'single';
 }
 
 const PREVIEW_COUNT = 3;
 
-export function QuizTab({ material, questions, loading }: QuizTabProps) {
+export function QuizTab({ material, questions, loading, viewMode = 'single' }: QuizTabProps) {
     const [quizStarted, setQuizStarted] = useState(false);
     const [currentQuestion, setCurrentQuestion] = useState(0);
-    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null); // Now stores TEXT, not letter
-    const [answers, setAnswers] = useState<Record<number, string>>({}); // Stores TEXT of selected answers
+    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+    const [answers, setAnswers] = useState<Record<number, string>>({});
     const [showResult, setShowResult] = useState(false);
     const [isAnswerLocked, setIsAnswerLocked] = useState(false);
-    const [shuffledOptions, setShuffledOptions] = useState<Record<number, Array<{ letter: string, text: string }>>>({});
-
-    // Shuffle options when quiz starts or question changes
-    useEffect(() => {
-        if (quizStarted && questions.length > 0 && !shuffledOptions[currentQuestion]) {
-            const question = questions[currentQuestion];
-            const options = [
-                { letter: 'A', text: question.option_a },
-                { letter: 'B', text: question.option_b },
-                { letter: 'C', text: question.option_c },
-                { letter: 'D', text: question.option_d }
-            ];
-            const shuffled = shuffleArray(options);
-            // Reassign letters after shuffle
-            const withNewLetters = shuffled.map((opt, idx) => ({
-                ...opt,
-                letter: String.fromCharCode(65 + idx) // A, B, C, D
-            }));
-            setShuffledOptions(prev => ({ ...prev, [currentQuestion]: withNewLetters }));
-        }
-    }, [quizStarted, currentQuestion, questions, shuffledOptions]);
 
     const handleSelectAnswer = (answerText: string) => {
         if (isAnswerLocked) return;
-        setSelectedAnswer(answerText); // Store text, not letter
+        setSelectedAnswer(answerText);
     };
 
     const handleConfirmAnswer = () => {
         if (!selectedAnswer) return;
-
         setIsAnswerLocked(true);
-        setAnswers(prev => ({ ...prev, [currentQuestion]: selectedAnswer })); // Store text
+        setAnswers(prev => ({ ...prev, [currentQuestion]: selectedAnswer }));
     };
 
     const handleNextQuestion = () => {
@@ -88,21 +57,10 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
         setAnswers({});
         setShowResult(false);
         setIsAnswerLocked(false);
-        setShuffledOptions({}); // Reset shuffled options for new attempt
     };
 
-    // Get correct answer TEXT for a question (now stored directly as text)
     const getCorrectAnswerText = (q: QuizQuestion): string => {
-        if (!q) return '';
         return q.correct_option || '';
-    };
-
-    const getExplanationText = (q: QuizQuestion, correctAnswerText: string): string => {
-        const savedExplanation = q.explanation?.trim();
-        if (savedExplanation) {
-            return savedExplanation;
-        }
-        return `Correct answer: ${correctAnswerText}. This option best matches the source material.`;
     };
 
     const calculateScore = () => {
@@ -128,7 +86,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
         );
     }
 
-    if (questions.length === 0) {
+    if (!questions || questions.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                 <div className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 mb-6">
@@ -136,7 +94,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                 </div>
                 <h2 className="text-2xl font-medium text-white mb-2">No Quiz Yet</h2>
                 <p className="text-white/40 max-w-md mb-8">
-                    Quiz questions have not been generated for this material yet.
+                    Quiz questions have not been generated for {viewMode === 'all' ? 'these materials' : 'this material'} yet.
                 </p>
                 <button
                     onClick={() => toast.info('Quiz generation coming soon')}
@@ -162,17 +120,9 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                         animate={{ opacity: 1, scale: 1 }}
                         className="text-center"
                     >
-                        {/* Result Circle */}
                         <div className="relative w-48 h-48 mx-auto mb-8">
                             <svg className="w-full h-full -rotate-90">
-                                <circle
-                                    cx="96"
-                                    cy="96"
-                                    r="88"
-                                    fill="none"
-                                    stroke="rgba(255,255,255,0.1)"
-                                    strokeWidth="12"
-                                />
+                                <circle cx="96" cy="96" r="88" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
                                 <motion.circle
                                     cx="96"
                                     cy="96"
@@ -199,12 +149,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                             </div>
                         </div>
 
-                        {/* Result Title */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                        >
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                             <h2 className={`text-3xl font-bold mb-2 ${isPassing ? 'text-emerald-400' : 'text-primary'}`}>
                                 {isPassing ? '🎉 Excellent!' : '📚 Keep Learning!'}
                             </h2>
@@ -213,7 +158,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                             </p>
                         </motion.div>
 
-                        {/* Stats Grid */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -234,65 +178,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                             </div>
                         </motion.div>
 
-                        {/* Answer Review */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.7 }}
-                            className="text-left mb-8"
-                        >
-                            <h3 className="text-sm font-medium text-white/60 mb-4">Answer Review</h3>
-                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
-                                {questions.map((q, idx) => {
-                                    const userAnswerText = answers[idx];
-                                    const correctText = getCorrectAnswerText(q);
-                                    const isCorrectAnswer = userAnswerText === correctText;
-                                    const explanationText = getExplanationText(q, correctText);
-
-                                    return (
-                                        <div
-                                            key={q.id}
-                                            className={`p-4 rounded-xl border ${isCorrectAnswer
-                                                    ? 'bg-emerald-500/5 border-emerald-500/20'
-                                                    : 'bg-red-500/5 border-red-500/20'
-                                                }`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isCorrectAnswer ? 'bg-emerald-500' : 'bg-red-500'
-                                                    }`}>
-                                                    {isCorrectAnswer ? <Check size={14} className="text-white" /> : <X size={14} className="text-white" />}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm text-white/80 mb-2 line-clamp-2">{q.question}</p>
-                                                    <div className="space-y-1 text-xs">
-                                                        <div className="flex gap-2">
-                                                            <span className="text-white/40">Your answer:</span>
-                                                            <span className={isCorrectAnswer ? 'text-emerald-400' : 'text-red-400'}>
-                                                                {userAnswerText || 'Not answered'}
-                                                            </span>
-                                                        </div>
-                                                        {!isCorrectAnswer && (
-                                                            <div className="flex gap-2">
-                                                                <span className="text-white/40">Correct:</span>
-                                                                <span className="text-emerald-400">{correctText}</span>
-                                                            </div>
-                                                        )}
-                                                        {!isCorrectAnswer && (
-                                                            <div className="mt-2 p-2.5 rounded-lg bg-white/5 border border-white/10">
-                                                                <span className="text-white/40 text-[10px] uppercase tracking-wider block mb-1">Explanation</span>
-                                                                <p className="text-white/70 leading-relaxed">{explanationText}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </motion.div>
-
-                        {/* Action Buttons */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -327,25 +212,14 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
     // Active Quiz Session
     if (quizStarted) {
         const question = questions[currentQuestion];
-
-        // Get shuffled options for this question (or loading state)
-        const currentOptions = shuffledOptions[currentQuestion] || [];
-
-        // Get correct answer TEXT
+        const options = [
+            { letter: 'A', text: question.option_a },
+            { letter: 'B', text: question.option_b },
+            { letter: 'C', text: question.option_c },
+            { letter: 'D', text: question.option_d }
+        ];
         const correctAnswerText = getCorrectAnswerText(question);
-        const explanationText = getExplanationText(question, correctAnswerText);
-
-        // Check if selected answer is correct (compare by TEXT)
         const isCorrect = selectedAnswer === correctAnswerText;
-
-        // If options not yet shuffled, show loading
-        if (currentOptions.length === 0) {
-            return (
-                <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                </div>
-            );
-        }
 
         return (
             <div className="h-full flex flex-col bg-[#0A0A0C]">
@@ -396,19 +270,16 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                 exit={{ opacity: 0, x: -20 }}
                                 transition={{ duration: 0.3 }}
                             >
-                                {/* Question Number Badge */}
                                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
                                     <span className="text-xs font-bold text-primary">QUESTION {currentQuestion + 1}</span>
                                 </div>
 
-                                {/* Question Text */}
                                 <h2 className="text-2xl md:text-3xl font-medium text-white leading-relaxed mb-10">
                                     {question.question}
                                 </h2>
 
-                                {/* Answer Options */}
                                 <div className="space-y-4">
-                                    {currentOptions.map((option, idx) => {
+                                    {options.map((option, idx) => {
                                         const isSelected = selectedAnswer === option.text;
                                         const isCorrectOption = option.text === correctAnswerText;
                                         const showFeedback = isAnswerLocked && isSelected;
@@ -421,7 +292,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                 transition={{ delay: idx * 0.1 }}
                                                 onClick={() => handleSelectAnswer(option.text)}
                                                 disabled={isAnswerLocked}
-                                                className={`w-full p-5 rounded-2xl border-2 text-left transition-all group relative overflow-hidden ${isAnswerLocked
+                                                className={`w-full p-5 rounded-2xl border-2 text-left transition-all ${isAnswerLocked
                                                         ? isCorrectOption
                                                             ? 'bg-emerald-500/10 border-emerald-500/50'
                                                             : isSelected
@@ -433,7 +304,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    {/* Option Letter */}
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold transition-all ${isAnswerLocked
                                                             ? isCorrectOption
                                                                 ? 'bg-emerald-500 text-white'
@@ -442,7 +312,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                                     : 'bg-white/5 text-white/30'
                                                             : isSelected
                                                                 ? 'bg-primary text-black'
-                                                                : 'bg-white/5 text-white/60 group-hover:bg-white/10'
+                                                                : 'bg-white/5 text-white/60'
                                                         }`}>
                                                         {isAnswerLocked && (isSelected || isCorrectOption) ? (
                                                             isCorrectOption ? <Check size={20} /> : <X size={20} />
@@ -450,8 +320,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                             option.letter
                                                         )}
                                                     </div>
-
-                                                    {/* Option Text */}
                                                     <span className={`text-base md:text-lg flex-1 ${isAnswerLocked
                                                             ? isCorrectOption
                                                                 ? 'text-emerald-400'
@@ -460,13 +328,11 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                                     : 'text-white/30'
                                                             : isSelected
                                                                 ? 'text-white'
-                                                                : 'text-white/70 group-hover:text-white'
+                                                                : 'text-white/70'
                                                         }`}>
                                                         {option.text}
                                                     </span>
                                                 </div>
-
-                                                {/* Feedback Badge */}
                                                 {showFeedback && (
                                                     <motion.div
                                                         initial={{ opacity: 0, scale: 0.8 }}
@@ -484,7 +350,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                     })}
                                 </div>
 
-                                {/* Explanation Section - Shows after answer is confirmed */}
                                 {isAnswerLocked && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 20 }}
@@ -508,8 +373,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                     }`}>
                                                     {isCorrect ? '🎉 Correct!' : '💡 Explanation'}
                                                 </h4>
-
-                                                {/* Correct Answer Display */}
                                                 <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                     <div className="text-xs text-emerald-400/60 uppercase tracking-wider mb-1">Correct Answer</div>
                                                     <div className="flex items-center gap-3">
@@ -521,8 +384,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                         </span>
                                                     </div>
                                                 </div>
-
-                                                {/* Your Answer (if wrong) */}
                                                 {!isCorrect && selectedAnswer && (
                                                     <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
                                                         <div className="text-xs text-red-400/60 uppercase tracking-wider mb-1">Your Answer</div>
@@ -536,29 +397,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                                         </div>
                                                     </div>
                                                 )}
-
-                                                {/* Explanation Text */}
-                                                <div className="text-white/70 text-sm leading-relaxed">
-                                                    {isCorrect ? (
-                                                        <p>
-                                                            Great job! You correctly identified the answer. This demonstrates your understanding of the material.
-                                                            <span className="block mt-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                                                                <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Explanation</span>
-                                                                {explanationText}
-                                                            </span>
-                                                        </p>
-                                                    ) : (
-                                                        <div>
-                                                            <p className="mb-3">
-                                                                Here's why this answer is correct:
-                                                            </p>
-                                                            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                                                <span className="text-white/40 text-xs uppercase tracking-wider block mb-1">Explanation</span>
-                                                                <p className="text-white/80">{explanationText}</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
                                             </div>
                                         </div>
                                     </motion.div>
@@ -572,7 +410,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                 <div className="flex-shrink-0 border-t border-white/5 bg-[#0D0D0F]">
                     <div className="max-w-4xl mx-auto px-6 py-4">
                         <div className="flex items-center justify-between">
-                            {/* Navigation */}
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handlePrevQuestion}
@@ -583,7 +420,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                 </button>
                             </div>
 
-                            {/* Confirm/Next Button */}
                             {!isAnswerLocked ? (
                                 <button
                                     onClick={handleConfirmAnswer}
@@ -603,31 +439,25 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                                 </button>
                             )}
 
-                            {/* Question Dots */}
                             <div className="flex items-center gap-1.5">
-                                {questions.map((q, idx) => {
-                                    const userAnswerText = answers[idx];
-                                    const correctText = getCorrectAnswerText(q);
-                                    const isAnsweredCorrect = userAnswerText === correctText;
-                                    return (
-                                        <button
-                                            key={idx}
-                                            onClick={() => {
-                                                setCurrentQuestion(idx);
-                                                setSelectedAnswer(answers[idx] || null);
-                                                setIsAnswerLocked(!!answers[idx]);
-                                            }}
-                                            className={`w-2.5 h-2.5 rounded-full transition-all ${idx === currentQuestion
-                                                    ? 'bg-primary scale-125'
-                                                    : userAnswerText
-                                                        ? isAnsweredCorrect
-                                                            ? 'bg-emerald-500'
-                                                            : 'bg-red-500'
-                                                        : 'bg-white/20 hover:bg-white/40'
-                                                }`}
-                                        />
-                                    );
-                                })}
+                                {questions.map((_, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            setCurrentQuestion(idx);
+                                            setSelectedAnswer(answers[idx] || null);
+                                            setIsAnswerLocked(!!answers[idx]);
+                                        }}
+                                        className={`w-2.5 h-2.5 rounded-full transition-all ${idx === currentQuestion
+                                                ? 'bg-primary scale-125'
+                                                : answers[idx]
+                                                    ? answers[idx] === getCorrectAnswerText(questions[idx])
+                                                        ? 'bg-emerald-500'
+                                                        : 'bg-red-500'
+                                                    : 'bg-white/20 hover:bg-white/40'
+                                            }`}
+                                    />
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -639,7 +469,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
     // Quiz Preview Screen (Default)
     return (
         <div className="max-w-3xl mx-auto p-8 h-full overflow-y-auto">
-            {/* Header */}
             <div className="mb-8">
                 <div className="flex items-center gap-4 mb-6">
                     <div className="w-20 h-24 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.1)] relative">
@@ -648,7 +477,7 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                     </div>
                     <div>
                         <h2 className="text-2xl font-medium text-white mb-1">Quiz Ready</h2>
-                        <p className="text-white/40 text-sm">{material.title}</p>
+                        <p className="text-white/40 text-sm">{material?.title || (viewMode === 'all' ? 'All Materials' : 'Material')}</p>
                     </div>
                 </div>
 
@@ -662,18 +491,16 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                         <div className="text-[10px] text-white/40 uppercase tracking-wider">Format</div>
                     </div>
                     <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-center">
-                        <div className="text-xl font-bold text-white mb-1">{material.type.toUpperCase()}</div>
+                        <div className="text-xl font-bold text-white mb-1">{material?.type?.toUpperCase() || 'N/A'}</div>
                         <div className="text-[10px] text-white/40 uppercase tracking-wider">Source</div>
                     </div>
                 </div>
             </div>
 
-            {/* Question Preview */}
             <div className="space-y-4 mb-8">
                 <h3 className="text-sm font-medium text-white/60 mb-4">Question Preview</h3>
                 {questions.slice(0, PREVIEW_COUNT).map((q, idx) => {
                     const options = [q.option_a, q.option_b, q.option_c, q.option_d];
-
                     return (
                         <div key={q.id} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
                             <div>
@@ -699,7 +526,6 @@ export function QuizTab({ material, questions, loading }: QuizTabProps) {
                 )}
             </div>
 
-            {/* Start Quiz Button */}
             <button
                 onClick={() => setQuizStarted(true)}
                 className="w-full px-8 py-4 bg-primary text-black rounded-xl font-bold text-lg hover:bg-primary/90 hover:scale-[1.02] transition-all shadow-[0_0_30px_rgba(255,138,61,0.2)] flex items-center justify-center gap-3"

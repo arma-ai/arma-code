@@ -2,7 +2,7 @@ import json
 import os
 import secrets
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union
 
 from dotenv import load_dotenv
 from pydantic import field_validator
@@ -21,6 +21,7 @@ for env_path in (
     _REPO_ROOT / ".env.local",
 ):
     load_dotenv(env_path, override=False)
+
 
 
 class Settings(BaseSettings):
@@ -44,11 +45,12 @@ class Settings(BaseSettings):
 
     # Database
     # Security fix: Use environment variables for database credentials (Bug #1.1)
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "eduplatform")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5434")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "eduplatform_dev")
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: str
+    POSTGRES_DB: str
+    # print(f"USER: {POSTGRES_USER}\nPASSWORD: {POSTGRES_PASSWORD}\nPOSTGRES_HOST: {POSTGRES_HOST}\nport:{POSTGRES_PORT}")
     
     # Construct DATABASE_URL from components, warn if no password set
     @property
@@ -102,6 +104,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3000/*"
         "http://localhost:3001",
         "http://127.0.0.1:3001",
         "http://localhost:8000",
@@ -147,21 +150,6 @@ class Settings(BaseSettings):
     EDGE_TTS_VOICE_RU_MALE: str = "ru-RU-DmitryNeural"
     EDGE_TTS_VOICE_EN_FEMALE: str = "en-US-AriaNeural"
     EDGE_TTS_VOICE_EN_MALE: str = "en-US-GuyNeural"
-
-    # Voice Chat Configuration (OpenAI Realtime API)
-    VOICE_PROVIDER: str = "openai"  # "openai", "voicebox", или "personaplex"
-    OPENAI_REALTIME_MODEL: str = "gpt-4o-realtime-preview"
-    OPENAI_REALTIME_VOICE: str = "alloy"  # alloy, echo, fable, onyx, nova, shimmer
-
-    # Voicebox TTS Configuration (локальный TTS на базе Qwen3-TTS)
-    VOICEBOX_API_URL: str = "http://localhost:8001"  # Voicebox backend URL
-    VOICEBOX_DEFAULT_PROFILE_ID: Optional[str] = None  # Default voice profile ID
-    VOICEBOX_DEFAULT_LANGUAGE: str = "en"  # Default language: ru, en, de, fr, es, it, ja, ko, zh, pt
-    VOICEBOX_MODEL_SIZE: str = "1.7B"  # Model size: 1.7B или 0.6B
-    VOICEBOX_TIMEOUT_SECONDS: int = 60  # Timeout for TTS generation
-
-    # NVIDIA PersonaPlex (опционально, для локального GPU)
-    PERSONAPLEX_WS_URL: str = "wss://localhost:8998"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

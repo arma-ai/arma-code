@@ -51,7 +51,7 @@ services:
     container_name: eduplatform-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@eduplatform.local}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?Set PGADMIN_EMAIL in .env}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Set PGADMIN_PASSWORD in .env}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
@@ -94,9 +94,14 @@ services:
     command: >
       celery -A app.infrastructure.queue.celery_app worker --loglevel=info --concurrency=2 --queues=materials,ai,celery --max-tasks-per-child=10 --time-limit=600 --soft-time-limit=540
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-eduplatform_dev}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5433/${POSTGRES_DB:-eduplatform_dev}
       - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - ./backend:/app
       - ./backend/storage:/app/storage
@@ -124,9 +129,14 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-eduplatform_dev}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-eduplatform}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5433/${POSTGRES_DB:-eduplatform_dev}
       - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - ./backend:/app
       - ./backend/storage:/app/storage
