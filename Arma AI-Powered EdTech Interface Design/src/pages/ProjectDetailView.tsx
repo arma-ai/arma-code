@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, Youtube, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, Folder, BookOpen, BrainCircuit, ClipboardList, Trash2, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -25,6 +25,16 @@ export function ProjectDetailView() {
     viewMode === 'all' ? projectId : null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!project || loading) {
+      return;
+    }
+
+    if (project.materials.length === 1) {
+      navigate(`/dashboard/materials/${project.materials[0].id}`, { replace: true });
+    }
+  }, [project, loading, navigate]);
 
   const handleDeleteProject = async () => {
     if (!project) return;
@@ -124,12 +134,12 @@ export function ProjectDetailView() {
               >
                 <ArrowLeft className="w-5 h-5 text-white/60" />
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                   <Folder className="w-5 h-5 text-primary" />
                 </div>
-                <div>
-                  <h1 className="text-xl font-semibold text-white">{project?.name || 'Loading...'}</h1>
+                <div className="min-w-0">
+                  <h1 className="truncate text-lg font-semibold text-white md:text-xl">{project?.name || 'Loading...'}</h1>
                   <p className="text-sm text-white/40">
                     {project?.materials.length || 0} materials
                   </p>
@@ -139,10 +149,10 @@ export function ProjectDetailView() {
             <button
               onClick={handleDeleteProject}
               disabled={isDeleting || !project}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex w-auto items-center justify-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50 cursor-pointer"
             >
               {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              <span className="text-sm font-medium">Delete Project</span>
+              <span className="hidden sm:inline text-sm font-medium">Delete Project</span>
             </button>
           </div>
         </div>
@@ -151,71 +161,61 @@ export function ProjectDetailView() {
       {/* Tabs */}
       <div className="border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'chat'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-white/40 hover:text-white/60'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <MessageSquare size={16} />
-                Chat
-              </div>
+              <MessageSquare size={16} />
+              Chat
             </button>
             <button
               onClick={() => setActiveTab('materials')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'materials'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-white/40 hover:text-white/60'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <FileText size={16} />
-                Materials
-              </div>
+              <FileText size={16} />
+              Materials
             </button>
             <button
               onClick={() => setActiveTab('summary')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'summary'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-white/40 hover:text-white/60'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <BookOpen size={16} />
-                Summary
-              </div>
+              <BookOpen size={16} />
+              Summary
             </button>
             <button
               onClick={() => setActiveTab('flashcards')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'flashcards'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-white/40 hover:text-white/60'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <BrainCircuit size={16} />
-                Flashcards
-              </div>
+              <BrainCircuit size={16} />
+              Flashcards
             </button>
             <button
               onClick={() => setActiveTab('quiz')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'quiz'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-white/40 hover:text-white/60'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <ClipboardList size={16} />
-                Quiz
-              </div>
+              <ClipboardList size={16} />
+              Quiz
             </button>
 
             {/* View Mode Toggle - for flashcards, quiz, and chat tabs */}
@@ -263,7 +263,7 @@ export function ProjectDetailView() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-4 md:py-8">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -329,9 +329,9 @@ export function ProjectDetailView() {
                       created_at: new Date().toISOString(),
                       file_path: '',
                       source_url: '',
-                      flashcards_count: content.flashcards?.length || 0,
-                      quiz_count: content.quiz?.length || 0,
-                      summary_status: content.summary ? 'completed' : 'pending',
+                      flashcards_count: content?.flashcards?.length || 0,
+                      quiz_count: content?.quiz?.length || 0,
+                      summary_status: content?.summary ? 'completed' : 'pending',
                       podcast_status: 'pending',
                       presentation_status: 'pending',
                     } as any}
@@ -621,8 +621,8 @@ export function ProjectDetailView() {
                       file_path: '',
                       source_url: '',
                       flashcards_count: content.flashcards.length,
-                      quiz_count: content.quiz?.length || 0,
-                      summary_status: content.summary ? 'completed' : 'pending',
+                      quiz_count: content?.quiz?.length || 0,
+                      summary_status: content?.summary ? 'completed' : 'pending',
                       podcast_status: 'pending',
                       presentation_status: 'pending',
                     } as any}
@@ -711,9 +711,9 @@ export function ProjectDetailView() {
                       created_at: new Date().toISOString(),
                       file_path: '',
                       source_url: '',
-                      flashcards_count: content.flashcards?.length || 0,
-                      quiz_count: content.quiz?.length || 0,
-                      summary_status: content.summary ? 'completed' : 'pending',
+                      flashcards_count: content?.flashcards?.length || 0,
+                      quiz_count: content?.quiz?.length || 0,
+                      summary_status: content?.summary ? 'completed' : 'pending',
                       podcast_status: 'pending',
                       presentation_status: 'pending',
                     } as any}

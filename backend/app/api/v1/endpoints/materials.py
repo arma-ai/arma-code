@@ -27,7 +27,7 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from app.api.dependencies import get_db, get_current_user, get_current_active_user
+from app.api.dependencies import get_db, get_current_user, get_current_active_user, require_quota, require_plan
 
 logger = logging.getLogger(__name__)
 from app.infrastructure.database.models.material import (
@@ -170,7 +170,8 @@ async def upload_materials_batch(
     All materials are processed together to generate unified AI content for the project.
     """
     from app.infrastructure.database.models.project import Project
-    
+    from app.core.config import settings as app_settings
+
     # Normalize empty lists
     files = files or []
     youtube_urls = youtube_urls or []
@@ -178,6 +179,24 @@ async def upload_materials_batch(
 
     # Validate total count
     total_materials = len(files) + len(youtube_urls) + len(link_urls)
+
+    # Check material upload quota (skip when billing bypass is on)
+    if not app_settings.BILLING_BYPASS:
+        from app.domain.services.usage_tracking_service import check_quota
+        allowed, summary = await check_quota(current_user.id, "material_upload", db)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "error": "quota_exceeded",
+                    "resource_type": summary.resource_type,
+                    "used": summary.used,
+                    "limit": summary.limit,
+                    "message": f"You have used {summary.used}/{summary.limit} material uploads this month.",
+                    "upgrade_url": "/pricing",
+                },
+            )
+
     if total_materials == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -363,6 +382,12 @@ async def upload_materials_batch(
         user_id=str(current_user.id),
     )
     
+    # Record usage for each material uploaded (skip when billing bypass is on)
+    if not app_settings.BILLING_BYPASS:
+        from app.domain.services.usage_tracking_service import record_usage
+        await record_usage(current_user.id, "material_upload", total_materials, db)
+        await db.commit()
+
     # Return response
     return BatchUploadResponse(
         batch_id=batch_id,
@@ -554,7 +579,7 @@ async def get_batch_materials(
 async def generate_podcast_script(
     material_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_plan("student")),
 ):
     """Generate and persist a podcast script for a material."""
     result = await db.execute(
@@ -591,6 +616,13 @@ async def generate_podcast_script(
         ) from exc
 
     material.podcast_script = script
+
+    # Record podcast usage (skip when billing bypass is on)
+    from app.core.config import settings as _podcast_settings
+    if not _podcast_settings.BILLING_BYPASS:
+        from app.domain.services.usage_tracking_service import record_usage as _record_podcast_usage
+        await _record_podcast_usage(current_user.id, "podcast_generation", 1, db)
+
     await db.commit()
     await db.refresh(material)
 
@@ -602,7 +634,7 @@ async def generate_podcast_audio(
     material_id: UUID,
     tts_provider: str = "edge",
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_plan("student")),
 ):
     """Generate podcast audio for an existing podcast script."""
     result = await db.execute(
@@ -668,7 +700,7 @@ async def generate_podcast_audio(
 async def generate_presentation(
     material_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_plan("student")),
 ):
     """Generate and persist a presentation for a material."""
     from sqlalchemy.orm import selectinload
@@ -944,7 +976,7 @@ async def send_tutor_message(
     material_id: UUID,
     message_data: TutorMessageRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_quota("chat_message")),
 ):
     """
     Send a message to the AI tutor for this material.
@@ -992,6 +1024,13 @@ async def send_tutor_message(
         )
     except Exception as exc:
         _raise_tutor_unavailable(exc)
+
+    # Record chat usage (skip when billing bypass is on)
+    from app.core.config import settings as _app_settings
+    if not _app_settings.BILLING_BYPASS:
+        from app.domain.services.usage_tracking_service import record_usage as _record_chat_usage
+        await _record_chat_usage(current_user.id, "chat_message", 1, db)
+        await db.commit()
 
     # Get the last AI message from DB
     result = await db.execute(

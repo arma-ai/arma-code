@@ -69,7 +69,7 @@ function FlashcardsHome({ onMaterialClick }: { onMaterialClick: (id: string) => 
   const processedMaterials = materials.filter(m => m.processing_status === 'completed');
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full scrollbar-hide">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-7xl mx-auto w-full scrollbar-hide">
        <div className="flex items-end justify-between mb-8">
           <div>
             <h1 className="text-3xl font-medium text-white tracking-tight mb-2">Flashcards</h1>
@@ -149,7 +149,7 @@ function DeckDetail({ materialId, onBack, onStart }: { materialId: string, onBac
   }
 
   return (
-    <div className="flex flex-col h-full p-8 max-w-5xl mx-auto w-full">
+    <div className="flex flex-col h-full p-4 md:p-8 max-w-5xl mx-auto w-full">
       <div className="flex items-center gap-4 mb-8">
         <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors cursor-pointer">
           <ArrowLeft size={20} />
@@ -302,7 +302,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
   return (
     <div className="flex flex-col h-full bg-[#0C0C0F]">
        {/* PLAYER HEADER */}
-       <div className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#121215]/50 backdrop-blur-md">
+       <div className="h-14 md:h-16 flex items-center justify-between px-4 md:px-6 border-b border-white/5 bg-[#121215]/50 backdrop-blur-md">
           <div className="flex items-center gap-4">
              <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white transition-colors">
                <ArrowLeft size={18} />
@@ -325,10 +325,10 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
        </div>
 
        {/* PLAYER STAGE */}
-       <div className="flex-1 flex flex-col items-center justify-center p-8 relative overflow-hidden">
+       <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
 
           {/* Card Stack Effect */}
-          <div className="relative w-full max-w-xl aspect-[3/2] perspective-[1000px]">
+          <div className="relative w-full max-w-full md:max-w-xl aspect-[3/2] perspective-[1000px]">
 
              <AnimatePresence>
              {stack.map((card) => {
@@ -414,7 +414,7 @@ function FlashcardsPlayer({ materialId, onBack }: { materialId: string, onBack: 
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-8 mt-12 z-40">
+          <div className="flex items-center gap-4 md:gap-8 mt-6 md:mt-12 z-40">
              <button
                onClick={() => handleSwipe(-1)}
                disabled={direction !== 0}

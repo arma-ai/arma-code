@@ -6,13 +6,16 @@ import os
 import logging
 import tempfile
 import subprocess
+import asyncio
+import socket
 from typing import List, Dict
 import httpx
 import edge_tts
+import aiohttp
 
 from app.infrastructure.database.models.material import Material
-from openai import AsyncOpenAI
 from app.core.config import settings
+from app.infrastructure.ai.openai_service import client as shared_openai_client, _openai_retry
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,7 @@ class PodcastService:
     }
 
     def __init__(self):
-        self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.openai_client = shared_openai_client
         self.elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY", "")
 
         # Голоса для ElevenLabs (можно настроить)
@@ -83,9 +86,10 @@ class PodcastService:
         language = self.detect_podcast_language(material.full_text)
         logger.info(f"[PodcastService] Detected language: {language}")
 
-        # Используем OpenAI для генерации скрипта
-        response = await self.openai_client.chat.completions.create(
-            model="gpt-4o",
+        # Длинные podcast prompts на проде часто упираются в сетевые таймауты.
+        # Используем общий клиент с retry и более компактный input.
+        response = await self._generate_script_completion(
+            model=settings.LLM_MODEL_MINI,
             messages=[
                 {
                     "role": "system",
@@ -106,7 +110,10 @@ IMPORTANT: The dialogue MUST be in the EXACT SAME LANGUAGE as the source text.""
                 },
                 {
                     "role": "user",
-                    "content": f"Create a podcast dialogue (10-15 exchanges) about this material:\n\n{material.full_text[:5000]}"
+                    "content": (
+                        "Create a podcast dialogue (10-12 exchanges) about this material.\n\n"
+                        f"{material.full_text[:3500]}"
+                    )
                 }
             ],
             response_format={"type": "json_object"}
@@ -127,6 +134,11 @@ IMPORTANT: The dialogue MUST be in the EXACT SAME LANGUAGE as the source text.""
 
         logger.info(f"[PodcastService] Generated podcast script with {len(script)} segments")
         return script
+
+    @_openai_retry
+    async def _generate_script_completion(self, **kwargs):
+        """Use the shared resilient OpenAI client for podcast script generation."""
+        return await self.openai_client.chat.completions.create(**kwargs)
 
     async def generate_podcast_audio(
         self, script: List[Dict[str, str]], storage_path: str
@@ -247,8 +259,40 @@ IMPORTANT: The dialogue MUST be in the EXACT SAME LANGUAGE as the source text.""
 
                 # Генерировать аудио через Edge TTS
                 logger.info(f"[PodcastService] Generating segment {idx + 1}/{len(script)} with voice {voice}")
-                communicate = edge_tts.Communicate(text, voice)
-                await communicate.save(tmp_path)
+
+                last_error = None
+                for attempt in range(1, 4):
+                    connector = aiohttp.TCPConnector(
+                        family=socket.AF_INET,
+                        ttl_dns_cache=300,
+                        limit=1,
+                    )
+                    try:
+                        communicate = edge_tts.Communicate(
+                            text,
+                            voice,
+                            connector=connector,
+                            connect_timeout=30,
+                            receive_timeout=120,
+                        )
+                        await communicate.save(tmp_path)
+                        last_error = None
+                        break
+                    except Exception as e:
+                        last_error = e
+                        logger.warning(
+                            "[PodcastService] Edge TTS segment %s attempt %s failed: %s",
+                            idx + 1,
+                            attempt,
+                            e,
+                        )
+                        if attempt < 3:
+                            await asyncio.sleep(attempt * 2)
+                    finally:
+                        await connector.close()
+
+                if last_error is not None:
+                    raise last_error
 
             if not temp_files:
                 raise ValueError("Failed to generate any audio segments")

@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft, FileText, Youtube, MessageSquare, Brain, CheckCircle2, Headphones, MonitorPlay,
-  Play, Sparkles, Download, Share2, Layers,
+  Play, Sparkles, Download, Share2, Layers, Info,
   Link as LinkIcon, Edit3, X, Archive, Loader2,
   AlertCircle, RotateCcw
 } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
+import { useIsMobile } from '../ui/use-mobile';
 import { toast } from 'sonner';
 import {
   useMaterial,
@@ -47,6 +49,9 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
 
   const [activeTab, setActiveTab] = useState<'chat' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides'>('chat');
   const [outlineOpen, setOutlineOpen] = useState(true);
+  const isMobile = useIsMobile();
+  const [mobileOutlineOpen, setMobileOutlineOpen] = useState(false);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
 
   // Loading state for the entire component
   if (materialLoading) {
@@ -97,8 +102,18 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
           </div>
         </div>
 
+        {/* Mobile panel toggles */}
+        <div className="flex items-center gap-1 md:hidden">
+          <button onClick={() => setMobileOutlineOpen(true)} className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-white transition-colors">
+            <Layers size={18} />
+          </button>
+          <button onClick={() => setMobileInfoOpen(true)} className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-white transition-colors">
+            <Info size={18} />
+          </button>
+        </div>
+
         {/* TOP TABS */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           {[
             { id: 'chat', label: 'Chat', icon: <MessageSquare size={14} /> },
             { id: 'summary', label: 'Summary', icon: <FileText size={14} /> },
@@ -124,37 +139,57 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
 
       <div className="flex-1 flex overflow-hidden">
 
-        {/* LEFT OUTLINE PANEL (TOC) */}
-        <AnimatePresence>
-          {outlineOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 260, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="border-r border-white/5 bg-[#0C0C0F]/50 flex flex-col shrink-0"
-            >
-              <div className="p-4 border-b border-white/5 flex justify-between items-center">
-                <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider">
-                  Table of Contents
-                </h3>
-                <button onClick={() => setOutlineOpen(false)} className="text-white/20 hover:text-white cursor-pointer"><X size={14} /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
-                {activeTab === 'summary' && summary ? (
-                  <TableOfContentsSummary summary={summary.summary} />
-                ) : (
-                  <div className="p-4 text-center text-xs text-white/30">
-                    {material.type === 'pdf' ? 'PDF outline not yet available' : 'Video timestamps not yet available'}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* LEFT OUTLINE PANEL (TOC) - Desktop */}
+        {!isMobile && (
+          <AnimatePresence>
+            {outlineOpen && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 260, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                className="border-r border-white/5 bg-[#0C0C0F]/50 flex flex-col shrink-0"
+              >
+                <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                  <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider">
+                    Table of Contents
+                  </h3>
+                  <button onClick={() => setOutlineOpen(false)} className="text-white/20 hover:text-white cursor-pointer"><X size={14} /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+                  {activeTab === 'summary' && summary ? (
+                    <TableOfContentsSummary summary={summary.summary} />
+                  ) : (
+                    <div className="p-4 text-center text-xs text-white/30">
+                      {material.type === 'pdf' ? 'PDF outline not yet available' : 'Video timestamps not yet available'}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
+
+        {/* LEFT OUTLINE PANEL - Mobile Sheet */}
+        <Sheet open={mobileOutlineOpen} onOpenChange={setMobileOutlineOpen}>
+          <SheetContent side="left" className="w-[280px] bg-[#0C0C0F] border-white/5 p-0">
+            <SheetHeader className="p-4 border-b border-white/5">
+              <SheetTitle className="text-xs font-medium text-white/40 uppercase tracking-wider">Table of Contents</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+              {activeTab === 'summary' && summary ? (
+                <TableOfContentsSummary summary={summary.summary} />
+              ) : (
+                <div className="p-4 text-center text-xs text-white/30">
+                  {material.type === 'pdf' ? 'PDF outline not yet available' : 'Video timestamps not yet available'}
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* CENTER WORKSPACE */}
         <div className="flex-1 flex flex-col relative bg-[#121215]/40 overflow-hidden">
-          {!outlineOpen && (
+          {!outlineOpen && !isMobile && (
             <button
               onClick={() => setOutlineOpen(true)}
               className="absolute left-4 top-4 z-10 p-2 rounded-lg bg-black/40 text-white/40 hover:text-white hover:bg-white/10 transition-colors backdrop-blur-md border border-white/5"
@@ -203,7 +238,7 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
         </div>
 
         {/* RIGHT ACTIONS RAIL (Metadata) */}
-        <div className="w-64 border-l border-white/5 bg-[#0C0C0F]/50 flex flex-col shrink-0">
+        <div className="w-64 border-l border-white/5 bg-[#0C0C0F]/50 hidden md:flex flex-col shrink-0">
           <div className="p-4 border-b border-white/5">
             <h3 className="text-xs font-medium text-white/40 uppercase tracking-wider">Project Info</h3>
           </div>
@@ -281,6 +316,66 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
             </div>
           </div>
         </div>
+
+        {/* RIGHT PANEL - Mobile Sheet */}
+        <Sheet open={mobileInfoOpen} onOpenChange={setMobileInfoOpen}>
+          <SheetContent side="right" className="w-[280px] bg-[#0C0C0F] border-white/5 p-0">
+            <SheetHeader className="p-4 border-b border-white/5">
+              <SheetTitle className="text-xs font-medium text-white/40 uppercase tracking-wider">Project Info</SheetTitle>
+            </SheetHeader>
+            <div className="p-4 space-y-6 overflow-y-auto flex-1">
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-wider mb-2 block">Status</label>
+                <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold border ${material.processing_status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                  material.processing_status === 'processing' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                    material.processing_status === 'failed' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                      'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                  }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${material.processing_status === 'completed' ? 'bg-emerald-400' :
+                    material.processing_status === 'processing' ? 'bg-amber-400 animate-pulse' :
+                      material.processing_status === 'failed' ? 'bg-red-400' :
+                        'bg-blue-400'
+                    }`} />
+                  {material.processing_status === 'failed' ? 'ERROR' : material.processing_status.toUpperCase()}
+                </div>
+              </div>
+              <RetryButton material={material} onRetrySuccess={refetchMaterial} />
+              {material.processing_status === 'processing' && material.processing_progress > 0 && (
+                <div>
+                  <label className="text-[10px] text-white/30 uppercase tracking-wider mb-2 block">Progress</label>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-white/40">Processing</span>
+                      <span className="text-white/60">{material.processing_progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-primary transition-all duration-300" style={{ width: `${material.processing_progress}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-wider mb-2 block">Type</label>
+                <span className="px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] text-white/60">
+                  {material.type.toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-wider mb-2 block">Created</label>
+                <p className="text-xs text-white/60">{new Date(material.created_at).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-wider mb-2 block">Actions</label>
+                <div className="space-y-1">
+                  <ActionButton icon={<Download size={14} />} label="Export" onClick={() => toast.success('Export started')} />
+                  <ActionButton icon={<Share2 size={14} />} label="Share" onClick={() => toast.success('Share link copied')} />
+                  <ActionButton icon={<Edit3 size={14} />} label="Rename" onClick={() => toast.info('Rename modal opening...')} />
+                  <ActionButton icon={<Archive size={14} />} label="Archive" onClick={() => toast.success('Project archived')} />
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
 
       </div>
     </div>
@@ -392,7 +487,7 @@ function ChatTab({ material, messages, sendMessage, sending, loading }: ChatTabP
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md">
@@ -418,7 +513,7 @@ function ChatTab({ material, messages, sendMessage, sending, loading }: ChatTabP
       </div>
 
       {/* Input Area */}
-      <div className="p-6 shrink-0 max-w-3xl mx-auto w-full">
+      <div className="p-3 md:p-6 shrink-0 max-w-3xl mx-auto w-full">
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
           {['Summarize section 2', 'Create flashcards', 'Explain key terms', 'Give me a quiz'].map(suggestion => (
             <button
@@ -644,7 +739,7 @@ function SummaryTab({ summary, loading }: SummaryTabProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-12 overflow-y-auto h-full scrollbar-hide">
+    <div className="max-w-3xl mx-auto p-4 md:p-12 overflow-y-auto h-full scrollbar-hide">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-medium text-white">Executive Summary</h2>
@@ -751,7 +846,7 @@ function FlashcardsTab({ material, flashcards, loading, onNavigate, onSelectDeck
 
   // READY STATE
   return (
-    <div className="max-w-3xl mx-auto p-12 h-full overflow-y-auto scrollbar-hide">
+    <div className="max-w-3xl mx-auto p-4 md:p-12 h-full overflow-y-auto scrollbar-hide">
       <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-8 mb-8">
         <div className="flex items-center gap-6 mb-8">
           <div className="w-20 h-24 bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(255,138,61,0.1)] relative">

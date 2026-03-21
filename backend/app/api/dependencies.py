@@ -136,6 +136,70 @@ async def get_current_superuser(
     return current_user
 
 
+def require_quota(resource_type: str):
+    """Dependency factory: checks quota before allowing the request. Returns 402 if exceeded."""
+
+    async def _check(
+        current_user: User = Depends(get_current_active_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        # Skip quota checks when billing bypass is enabled (local dev)
+        if settings.BILLING_BYPASS:
+            return current_user
+
+        from app.domain.services.usage_tracking_service import check_quota
+
+        allowed, summary = await check_quota(current_user.id, resource_type, db)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "error": "quota_exceeded",
+                    "resource_type": summary.resource_type,
+                    "used": summary.used,
+                    "limit": summary.limit,
+                    "message": f"You have used {summary.used}/{summary.limit} {summary.resource_type} this month.",
+                    "upgrade_url": "/pricing",
+                },
+            )
+        return current_user
+
+    return _check
+
+
+def require_plan(min_tier: str):
+    """Dependency factory: requires minimum plan tier. Returns 402 if plan is lower."""
+
+    tier_order = {"free": 0, "student": 1, "pro": 2}
+
+    async def _check(
+        current_user: User = Depends(get_current_active_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        # Skip plan checks when billing bypass is enabled (local dev)
+        if settings.BILLING_BYPASS:
+            return current_user
+
+        from app.domain.services.subscription_service import get_or_create_subscription
+
+        sub = await get_or_create_subscription(current_user.id, db)
+        current_tier = sub.plan_tier.value if hasattr(sub.plan_tier, "value") else sub.plan_tier
+        if tier_order.get(current_tier, 0) < tier_order.get(min_tier, 0):
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "error": "plan_required",
+                    "required_plan": min_tier,
+                    "current_plan": current_tier,
+                    "message": f"This feature requires the {min_tier} plan or higher.",
+                    "upgrade_url": "/pricing",
+                },
+            )
+        return current_user
+
+    return _check
+
+
 async def verify_material_owner(
     material_id: UUID,
     current_user: User,

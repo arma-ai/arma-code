@@ -153,18 +153,54 @@ async def login(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get current user information.
+    Get current user information with subscription data.
 
     Args:
         current_user: Current authenticated user
+        db: Database session
 
     Returns:
-        UserResponse: Current user data
+        UserResponse: Current user data with subscription
     """
-    return current_user
+    from app.core.config import settings as app_settings
+    from app.schemas.subscription import SubscriptionResponse
+
+    # Build response manually to avoid lazy-loading the subscription relationship
+    response = UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        is_active=current_user.is_active,
+        is_superuser=current_user.is_superuser,
+        is_oauth=current_user.is_oauth,
+        oauth_provider=current_user.oauth_provider,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
+    )
+
+    if app_settings.BILLING_BYPASS:
+        # Local dev: fake pro subscription so everything is unlocked
+        response.subscription = SubscriptionResponse(
+            plan_tier="pro",
+            status="active",
+            current_period_end=None,
+            cancel_at_period_end=False,
+        )
+    else:
+        from app.domain.services.subscription_service import get_or_create_subscription
+
+        sub = await get_or_create_subscription(current_user.id, db)
+        response.subscription = SubscriptionResponse(
+            plan_tier=sub.plan_tier.value if hasattr(sub.plan_tier, 'value') else sub.plan_tier,
+            status=sub.status.value if hasattr(sub.status, 'value') else sub.status,
+            current_period_end=sub.current_period_end,
+            cancel_at_period_end=sub.cancel_at_period_end,
+        )
+    return response
 
 
 @router.post("/logout", response_model=MessageResponse)

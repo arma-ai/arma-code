@@ -13,11 +13,11 @@ interface SearchResultsModalProps {
   aiAnswer?: string;  // AI answer when no materials found
 }
 
-export function SearchResultsModal({ 
-  query, 
-  results, 
-  loading, 
-  onClose, 
+export function SearchResultsModal({
+  query,
+  results,
+  loading,
+  onClose,
   onSelectResult,
   aiAnswer
 }: SearchResultsModalProps) {
@@ -31,8 +31,8 @@ export function SearchResultsModal({
     };
   }, []);
 
-  const filteredResults = activeTab === 'all' 
-    ? results 
+  const filteredResults = activeTab === 'all'
+    ? results
     : results.filter(r => r.type === activeTab);
 
   const pdfCount = results.filter(r => r.type === 'pdf').length;
@@ -75,360 +75,159 @@ export function SearchResultsModal({
 
   return (
     <>
-      {/* Backdrop - separate layer */}
-      <div 
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 99998
-        }}
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[99998]"
         onClick={onClose}
       />
-      
+
       {/* Modal Container */}
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1rem',
-          zIndex: 99999,
-          pointerEvents: 'none'
-        }}
-      >
-        <motion.div 
+      <div className="fixed inset-0 flex items-center justify-center p-2 md:p-4 z-[99999] pointer-events-none">
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           onClick={(e) => e.stopPropagation()}
-          style={{
-            width: '100%',
-            maxWidth: '48rem',
-            maxHeight: '80vh',
-            backgroundColor: '#0D0D0F',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '1rem',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            pointerEvents: 'auto'
-          }}
+          className="w-full max-w-full md:max-w-3xl max-h-[90vh] md:max-h-[80vh] bg-[#0D0D0F] border border-white/10 rounded-xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden pointer-events-auto"
         >
           {/* Header */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '1rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            backgroundColor: '#0D0D0F',
-            flexShrink: 0
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{
-                width: '2.5rem',
-                height: '2.5rem',
-                borderRadius: '0.75rem',
-                backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Search size={18} style={{ color: '#f97316' }} />
+          <div className="flex items-center justify-between p-3 md:p-4 border-b border-white/10 bg-[#0D0D0F] shrink-0">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-primary/10 flex items-center justify-center">
+                <Search size={18} className="text-primary" />
               </div>
               <div>
-                <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'white', margin: 0 }}>Search Results</h2>
-                <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', margin: 0 }}>"{query}"</p>
+                <h2 className="text-sm md:text-base font-semibold text-white">Search Results</h2>
+                <p className="text-xs text-white/40 truncate max-w-[200px] md:max-w-none">"{query}"</p>
               </div>
             </div>
-            <button 
-              onClick={onClose} 
-              style={{
-                padding: '0.5rem',
-                color: 'rgba(255, 255, 255, 0.5)',
-                background: 'transparent',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer'
-              }}
-            >
+            <button onClick={onClose} className="p-2 text-white/50 hover:text-white rounded-lg transition-colors">
               <X size={20} />
             </button>
           </div>
 
           {/* Tabs */}
-          <div style={{
-            padding: '1rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-            backgroundColor: '#0D0D0F',
-            flexShrink: 0
-          }}>
-            <div style={{
-              display: 'flex',
-              gap: '0.25rem',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              padding: '0.25rem',
-              borderRadius: '0.75rem'
-            }}>
+          <div className="p-2 md:p-4 border-b border-white/5 bg-[#0D0D0F] shrink-0">
+            <div className="flex gap-1 bg-white/5 p-1 rounded-lg md:rounded-xl">
               {[
-                { key: 'all', label: `All (${results.length})`, icon: null },
-                { key: 'pdf', label: `PDF (${pdfCount})`, icon: <FileText size={12} /> },
-                { key: 'youtube', label: `Video (${youtubeCount})`, icon: <Youtube size={12} /> },
-                { key: 'article', label: `Articles (${articleCount})`, icon: <Globe size={12} /> }
+                { key: 'all', label: `All (${results.length})`, mobileLabel: 'All', icon: null },
+                { key: 'pdf', label: `PDF (${pdfCount})`, mobileLabel: 'PDF', icon: <FileText size={12} /> },
+                { key: 'youtube', label: `Video (${youtubeCount})`, mobileLabel: 'Video', icon: <Youtube size={12} /> },
+                { key: 'article', label: `Articles (${articleCount})`, mobileLabel: 'Web', icon: <Globe size={12} /> }
               ].map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as SearchResultType | 'all')}
-                  style={{
-                    flex: 1,
-                    padding: '0.625rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                    borderRadius: '0.5rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.375rem',
-                    backgroundColor: activeTab === tab.key ? '#f97316' : 'transparent',
-                    color: activeTab === tab.key ? 'black' : 'rgba(255, 255, 255, 0.6)',
-                    transition: 'all 0.2s'
-                  }}
+                  className={`flex-1 py-2 md:py-2.5 text-[11px] md:text-xs font-medium rounded-md md:rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-primary text-black'
+                      : 'text-white/60 hover:text-white'
+                  }`}
                 >
                   {tab.icon}
-                  {tab.label}
+                  <span className="md:hidden">{tab.mobileLabel}</span>
+                  <span className="hidden md:inline">{tab.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Results List */}
-          <div style={{
-            padding: '1rem',
-            flex: 1,
-            overflowY: 'auto',
-            backgroundColor: '#0A0A0C'
-          }}>
+          <div className="p-2 md:p-4 flex-1 overflow-y-auto bg-[#0A0A0C]">
             {loading ? (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                padding: '4rem 0',
-                textAlign: 'center'
-              }}>
-                <Loader2 style={{ width: '2.5rem', height: '2.5rem', color: '#f97316' }} className="animate-spin" />
-                <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 500, marginTop: '1rem' }}>Searching the web...</p>
-                <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.875rem' }}>Finding PDFs, videos, and articles</p>
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <p className="text-white/80 font-medium mt-4">Searching the web...</p>
+                <p className="text-white/40 text-sm">Finding PDFs, videos, and articles</p>
               </div>
             ) : filteredResults.length === 0 ? (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                padding: '4rem 0',
-                textAlign: 'center'
-              }}>
-                <div style={{
-                  width: '4rem',
-                  height: '4rem',
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '1rem'
-                }}>
-                  <Search size={24} style={{ color: 'rgba(255, 255, 255, 0.2)' }} />
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <Search size={24} className="text-white/20" />
                 </div>
-                <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontWeight: 500 }}>No results found</p>
-                <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.875rem' }}>Try a different search term</p>
+                <p className="text-white/60 font-medium">No results found</p>
+                <p className="text-white/40 text-sm">Try a different search term</p>
               </div>
             ) : aiAnswer ? (
               // Show AI answer when no materials found
-              <div style={{
-                padding: '2rem',
-                borderRadius: '1rem',
-                border: '1px solid rgba(255, 138, 61, 0.2)',
-                backgroundColor: 'rgba(255, 138, 61, 0.05)'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  marginBottom: '1rem'
-                }}>
-                  <div style={{
-                    width: '3rem',
-                    height: '3rem',
-                    borderRadius: '50%',
-                    backgroundColor: 'rgba(255, 138, 61, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Sparkles size={20} style={{ color: 'rgba(255, 138, 61, 1)' }} />
+              <div className="p-4 md:p-8 rounded-xl md:rounded-2xl border border-primary/20 bg-primary/5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Sparkles size={20} className="text-primary" />
                   </div>
                   <div>
-                    <h3 style={{
-                      fontSize: '1rem',
-                      fontWeight: 600,
-                      color: 'rgba(255, 255, 255, 0.95)',
-                      margin: 0
-                    }}>AI Answer</h3>
-                    <p style={{
-                      fontSize: '0.75rem',
-                      color: 'rgba(255, 255, 255, 0.5)',
-                      margin: 0
-                    }}>Generated answer when no materials found</p>
+                    <h3 className="text-sm md:text-base font-semibold text-white/95">AI Answer</h3>
+                    <p className="text-xs text-white/50">Generated answer when no materials found</p>
                   </div>
                 </div>
-                <div style={{
-                  padding: '1rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                  fontSize: '0.875rem',
-                  lineHeight: '1.6',
-                  color: 'rgba(255, 255, 255, 0.85)',
-                  whiteSpace: 'pre-wrap'
-                }}>
+                <div className="p-3 md:p-4 rounded-lg md:rounded-xl bg-black/20 text-sm leading-relaxed text-white/85 whitespace-pre-wrap">
                   {aiAnswer}
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="flex flex-col gap-2 md:gap-3">
                 {filteredResults.map((result, index) => (
                   <motion.div
                     key={result.url}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: '0.75rem',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)'
-                    }}
+                    className="p-3 md:p-4 rounded-lg md:rounded-xl border border-white/5 bg-white/[0.02]"
                   >
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div className="flex gap-3 md:gap-4">
                       {/* Thumbnail */}
                       {result.thumbnail_url ? (
-                        <div style={{
-                          width: '7rem',
-                          height: '5rem',
-                          borderRadius: '0.5rem',
-                          overflow: 'hidden',
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          flexShrink: 0
-                        }}>
-                          <img 
-                            src={result.thumbnail_url} 
+                        <div className="w-16 h-12 md:w-28 md:h-20 rounded-lg overflow-hidden bg-white/5 shrink-0">
+                          <img
+                            src={result.thumbnail_url}
                             alt={result.title}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            className="w-full h-full object-cover"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
                         </div>
                       ) : (
-                        <div style={{
-                          width: '5rem',
-                          height: '5rem',
-                          borderRadius: '0.5rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          backgroundColor: result.type === 'pdf' ? 'rgba(59, 130, 246, 0.1)' :
-                            result.type === 'youtube' ? 'rgba(239, 68, 68, 0.1)' :
-                            'rgba(16, 185, 129, 0.1)'
-                        }}>
+                        <div className={`w-12 h-12 md:w-20 md:h-20 rounded-lg flex items-center justify-center shrink-0 ${
+                          result.type === 'pdf' ? 'bg-blue-500/10' :
+                          result.type === 'youtube' ? 'bg-red-500/10' :
+                          'bg-emerald-500/10'
+                        }`}>
                           {getTypeIcon(result.type)}
                         </div>
                       )}
 
                       {/* Content */}
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                          <h3 style={{
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            color: 'rgba(255, 255, 255, 0.9)',
-                            margin: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical'
-                          }}>
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="text-xs md:text-sm font-medium text-white/90 line-clamp-2">
                             {result.title}
                           </h3>
-                          <span style={{
-                            fontSize: '0.625rem',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '0.375rem',
-                            flexShrink: 0,
-                            backgroundColor: result.type === 'pdf' ? 'rgba(59, 130, 246, 0.2)' :
-                              result.type === 'youtube' ? 'rgba(239, 68, 68, 0.2)' :
-                              'rgba(16, 185, 129, 0.2)',
-                            color: result.type === 'pdf' ? '#60a5fa' :
-                              result.type === 'youtube' ? '#f87171' :
-                              '#34d399'
-                          }}>
+                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${
+                            result.type === 'pdf' ? 'bg-blue-500/20 text-blue-400' :
+                            result.type === 'youtube' ? 'bg-red-500/20 text-red-400' :
+                            'bg-emerald-500/20 text-emerald-400'
+                          }`}>
                             {getTypeLabel(result.type)}
                           </span>
                         </div>
 
                         {result.description && (
-                          <p style={{
-                            fontSize: '0.75rem',
-                            color: 'rgba(255, 255, 255, 0.4)',
-                            margin: '0 0 0.5rem 0',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            flex: 1
-                          }}>
+                          <p className="text-[11px] md:text-xs text-white/40 line-clamp-2 flex-1 mb-2">
                             {result.description}
                           </p>
                         )}
 
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.3)' }}>
+                        <div className="flex items-center justify-between mt-auto">
+                          <span className="text-[11px] md:text-xs text-white/30 truncate max-w-[120px] md:max-w-none">
                             {result.source}
                           </span>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div className="flex items-center gap-1 md:gap-2">
                             <a
                               href={result.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{
-                                padding: '0.5rem',
-                                borderRadius: '0.5rem',
-                                color: 'rgba(255, 255, 255, 0.4)',
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex'
-                              }}
+                              className="p-1.5 md:p-2 rounded-lg text-white/40 hover:text-white transition-colors"
                               title="Open in new tab"
                             >
                               <ExternalLink size={14} />
@@ -436,20 +235,7 @@ export function SearchResultsModal({
                             <button
                               onClick={() => handleAddResult(result)}
                               disabled={addingId === result.url}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.375rem',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '0.5rem',
-                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                                color: '#f97316',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                opacity: addingId === result.url ? 0.5 : 1
-                              }}
+                              className="flex items-center gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium disabled:opacity-50 hover:bg-primary/20 transition-colors"
                             >
                               {addingId === result.url ? (
                                 <Loader2 size={12} className="animate-spin" />
@@ -470,13 +256,8 @@ export function SearchResultsModal({
 
           {/* Footer */}
           {!loading && filteredResults.length > 0 && (
-            <div style={{
-              padding: '0.75rem 1rem',
-              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-              backgroundColor: '#0D0D0F',
-              flexShrink: 0
-            }}>
-              <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', margin: 0 }}>
+            <div className="px-3 md:px-4 py-2 md:py-3 border-t border-white/5 bg-[#0D0D0F] shrink-0">
+              <p className="text-xs text-white/30 text-center">
                 Click "Add" to import a resource into your learning materials
               </p>
             </div>

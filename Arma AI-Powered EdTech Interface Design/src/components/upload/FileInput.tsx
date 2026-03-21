@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 interface FileInputProps {
   file?: File;
-  onAdd?: (file: File) => void;
+  onAdd?: (files: File[]) => void;
   onDelete?: () => void;
 }
 
@@ -43,32 +43,39 @@ function FileInput({ file, onAdd, onDelete }: FileInputProps) {
     return allowedExtensions.includes(fileExtension);
   };
 
+  const addFiles = (files: File[]) => {
+    const validFiles = files.filter(isValidFile);
+    const invalidFiles = files.length - validFiles.length;
+
+    if (invalidFiles > 0) {
+      toast.error("Some files were skipped. Only PDF, DOCX, DOC and TXT are supported");
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    onAdd?.(validFiles);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
 
-    const dropped = e.dataTransfer.files?.[0];
-    if (!dropped) return;
-
-    if (!isValidFile(dropped)) {
-      toast.error("Please upload a PDF, DOCX, DOC or TXT file");
+    const droppedFiles = Array.from(e.dataTransfer.files ?? []);
+    if (droppedFiles.length === 0) {
       return;
     }
 
-    onAdd?.(dropped);
+    addFiles(droppedFiles);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-
-    if (!isValidFile(selected)) {
-      toast.error("Please upload a PDF, DOCX, DOC or TXT file");
-      return;
+    const selectedFiles = Array.from(e.target.files ?? []);
+    if (selectedFiles.length > 0) {
+      addFiles(selectedFiles);
     }
-
-    onAdd?.(selected);
     e.target.value = "";
   };
 
@@ -79,7 +86,7 @@ function FileInput({ file, onAdd, onDelete }: FileInputProps) {
           ? "border-primary bg-primary/5"
           : file
             ? "border-primary/50 bg-primary/5 justify-start"
-            : "border-white/10 hover:border-white/20 hover:bg-white/5 p-8 justify-center items-center"
+            : "border-white/10 hover:border-white/20 hover:bg-white/5 p-4 md:p-8 justify-center items-center"
       }`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
@@ -91,6 +98,7 @@ function FileInput({ file, onAdd, onDelete }: FileInputProps) {
         ref={fileInputRef}
         type="file"
         accept=".pdf,.docx,.doc,.txt"
+        multiple
         onChange={handleFileSelect}
         className="hidden"
       />
@@ -127,7 +135,7 @@ function FileInput({ file, onAdd, onDelete }: FileInputProps) {
       ) : (
         <>
           <div
-            className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+            className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mb-4 ${
               file
                 ? "bg-primary/20 text-primary"
                 : "bg-white/5 text-white/40"
@@ -145,7 +153,7 @@ function FileInput({ file, onAdd, onDelete }: FileInputProps) {
             or click to browse files
           </p>
           <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-colors">
-            Choose File
+            Choose Files
           </button>
         </>
       )}

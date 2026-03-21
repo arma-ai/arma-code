@@ -142,6 +142,16 @@ class Settings(BaseSettings):
     LLM_MODEL_MINI: str = "gpt-4o-mini"
     LLM_MODEL: str = "gpt-4o"
 
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_STUDENT_PRICE_ID: str = ""
+    STRIPE_PRO_PRICE_ID: str = ""
+
+    # Billing bypass for local development — all users get unlimited "pro" access
+    BILLING_BYPASS: bool = True
+
     # TTS Provider Configuration
     TTS_PROVIDER: str = "edge"  # "edge" (бесплатно) или "elevenlabs" (платно)
 

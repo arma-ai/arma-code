@@ -199,14 +199,10 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
   };
 
   return (
-    <div className="min-h-full flex flex-col relative pb-32 md:pb-20">
+    <div className="min-h-full flex flex-col relative pb-32 md:pb-20 overflow-x-hidden">
 
-      {/* PULSING ORB BACKGROUND */}
-      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] pointer-events-none z-0">
-        <div className="absolute inset-0 bg-primary/10 rounded-full blur-[100px] animate-pulse mix-blend-screen" />
-        <div className="absolute inset-[20%] bg-primary/5 rounded-full blur-[60px] animate-pulse delay-75 mix-blend-screen" />
-        <div className="absolute inset-[40%] bg-white/5 rounded-full blur-[40px] animate-pulse delay-150 mix-blend-overlay" />
-      </div>
+      {/* PULSING ORB BACKGROUND – radial gradient for clean, controlled glow */}
+      <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-0 orb-glow-bg" />
 
       {/* AI CHAT HERO SECTION */}
       <div className="relative z-10 flex flex-col items-center justify-center pt-8 md:pt-24 pb-8 md:pb-16 px-4 md:px-4">
@@ -219,9 +215,9 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
           className="mb-6 md:mb-10 relative"
         >
           {/* Sphere Core Visual */}
-          <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-white/10 to-white/0 border border-white/10 backdrop-blur-sm relative flex items-center justify-center shadow-[0_0_60px_rgba(255,138,61,0.2)]">
+          <div className="w-20 h-20 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-white/10 to-white/0 border border-white/10 backdrop-blur-sm relative flex items-center justify-center overflow-hidden orb-sphere-shadow">
             <div className="absolute inset-0 rounded-full bg-gradient-to-t from-primary/20 to-transparent opacity-50" />
-            <AICore size="md" className="drop-shadow-[0_0_30px_rgba(255,138,61,0.5)] w-16 h-16 md:w-20 md:h-20 text-primary" />
+            <AICore size="md" className="w-10 h-10 md:w-20 md:h-20 text-primary" />
           </div>
         </motion.div>
 
@@ -230,12 +226,12 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 1 }}
-          className="text-center mb-8 md:mb-10 space-y-2 md:space-y-3 px-4 md:px-0 w-full md:w-auto"
+          className="text-center mb-8 md:mb-10 space-y-2 md:space-y-3 px-0 w-full md:w-auto"
         >
-          <h1 className="text-3xl md:text-5xl font-medium tracking-tight text-white drop-shadow-xl">
+          <h1 className="text-2xl md:text-5xl font-medium tracking-tight text-white drop-shadow-xl">
             Good to see you.
           </h1>
-          <p className="text-lg md:text-2xl text-white/50 font-light tracking-wide">
+          <p className="text-base md:text-2xl text-white/50 font-light tracking-wide">
             How can I help you learn today?
           </p>
         </motion.div>
@@ -245,7 +241,7 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.8 }}
-          className="w-full max-w-2xl relative group fixed bottom-[80px] md:bottom-auto md:relative z-40 md:z-10 px-4 md:px-0"
+          className="w-full max-w-2xl relative group z-10 px-4 md:px-0"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl hidden md:block pointer-events-none" />
 
@@ -272,7 +268,7 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
           </div>
 
           {/* Chips with rotation */}
-          <div className="relative z-10 flex md:justify-center items-center gap-2 md:gap-3 mt-4 md:mt-6 scrollbar-hide pb-2 md:pb-0 px-1 md:px-0">
+          <div className="relative z-10 flex md:justify-center items-center gap-2 md:gap-3 mt-4 md:mt-6 overflow-x-auto scrollbar-hide pb-2 md:pb-0 px-1 md:px-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={suggestionKey}

@@ -89,7 +89,7 @@ function ExamHome({ onSelectMaterial }: { onSelectMaterial: (materialId: string)
   const processedMaterials = materials.filter(m => m.processing_status === 'completed');
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-7xl mx-auto w-full">
       <div className="flex items-end justify-between mb-8">
         <div>
           <h1 className="text-3xl font-medium text-white tracking-tight mb-2">Exam Prep</h1>
@@ -176,7 +176,7 @@ function ExamSetup({ materialId, mode, config, setConfig, onBack, onStart }: {
   }
 
   return (
-    <div className="flex flex-col h-full max-w-2xl mx-auto w-full p-8 justify-center">
+    <div className="flex flex-col h-full max-w-2xl mx-auto w-full p-4 md:p-8 justify-center">
        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-white transition-colors mb-8 w-fit">
          <ArrowLeft size={16} /> Back
        </button>
@@ -195,7 +195,7 @@ function ExamSetup({ materialId, mode, config, setConfig, onBack, onStart }: {
 
           <div>
             <label className="block text-sm text-white/60 mb-2">Duration (Minutes)</label>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
                {[15, 30, 45, 60].map(m => (
                  <button
                    key={m}
@@ -210,7 +210,7 @@ function ExamSetup({ materialId, mode, config, setConfig, onBack, onStart }: {
 
           <div>
              <label className="block text-sm text-white/60 mb-2">Difficulty</label>
-             <div className="grid grid-cols-3 gap-4">
+             <div className="grid grid-cols-3 gap-2 md:gap-4">
                <button
                  onClick={() => setDifficulty('easy')}
                  className={`py-3 rounded-xl border transition-colors ${difficulty === 'easy' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-white/5 border-transparent text-white/60 hover:bg-white/10'}`}
@@ -297,7 +297,7 @@ function ExamSession({ data, onFinish }: any) {
   return (
     <div className="flex flex-col h-full bg-[#0C0C0F]">
        {/* HEADER */}
-       <div className="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-[#121215]/50 backdrop-blur-md">
+       <div className="h-14 md:h-16 flex items-center justify-between px-4 md:px-8 border-b border-white/5 bg-[#121215]/50 backdrop-blur-md">
           <div className="text-white/60">Question {currentQ + 1} / {data.questions.length}</div>
           <div className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 font-mono text-primary font-medium">
              {formatTime(timeLeft)}
@@ -308,9 +308,9 @@ function ExamSession({ data, onFinish }: any) {
        </div>
 
        {/* CONTENT */}
-       <div className="flex-1 flex flex-col items-center justify-center p-8 max-w-4xl mx-auto w-full">
+       <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 max-w-4xl mx-auto w-full">
           <div className="w-full mb-8">
-            <h2 className="text-2xl font-medium text-white mb-8 leading-relaxed">
+            <h2 className="text-lg md:text-2xl font-medium text-white mb-8 leading-relaxed">
               {currentQuestion.question}
             </h2>
 
@@ -366,7 +366,7 @@ function ExamResults({ data, onHome, onRetry }: { data: any, onHome: () => void,
   const scorePercent = Math.round((correctCount / questions.length) * 100);
 
   return (
-    <div className="flex flex-col items-center justify-center h-full p-8 text-center max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center h-full p-4 md:p-8 text-center max-w-2xl mx-auto">
        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 border shadow-[0_0_30px] ${
          scorePercent >= 70
            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/20'
@@ -385,7 +385,7 @@ function ExamResults({ data, onHome, onRetry }: { data: any, onHome: () => void,
              : 'Keep studying! You can do better next time.'}
        </p>
 
-       <div className="grid grid-cols-3 gap-4 w-full mb-12">
+       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full mb-12">
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
              <div className={`text-3xl font-bold mb-1 ${
                scorePercent >= 70 ? 'text-emerald-400' : scorePercent >= 50 ? 'text-amber-400' : 'text-red-400'
@@ -402,7 +402,7 @@ function ExamResults({ data, onHome, onRetry }: { data: any, onHome: () => void,
           </div>
        </div>
 
-       <div className="flex gap-4 w-full">
+       <div className="flex flex-col sm:flex-row gap-4 w-full">
           <button onClick={onRetry} className="flex-1 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors">
             Retry Exam
           </button>

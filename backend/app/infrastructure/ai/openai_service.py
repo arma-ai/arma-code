@@ -6,16 +6,27 @@ import json
 import logging
 from typing import List, Dict, Optional
 
+import httpx
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from openai import APIError, APITimeoutError, RateLimitError
+from openai import APIConnectionError, APIError, APITimeoutError, RateLimitError
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+_http_client = httpx.AsyncClient(
+    timeout=httpx.Timeout(connect=30.0, read=180.0, write=180.0, pool=180.0),
+    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+    http2=False,
+)
+
+# Initialize OpenAI client with an explicit httpx client for slower production networks.
+client = AsyncOpenAI(
+    api_key=settings.OPENAI_API_KEY,
+    http_client=_http_client,
+    max_retries=2,
+)
 
 # Optional Redis connection for caching
 _redis_client = None
@@ -51,7 +62,7 @@ def _cache_key(prefix: str, text: str, **kwargs) -> str:
 _openai_retry = retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=30),
-    retry=retry_if_exception_type((APIError, APITimeoutError, RateLimitError)),
+    retry=retry_if_exception_type((APIConnectionError, APIError, APITimeoutError, RateLimitError)),
     before_sleep=lambda retry_state: logger.warning(
         f"[OpenAI] Retrying after error (attempt {retry_state.attempt_number}): "
         f"{retry_state.outcome.exception()}"
@@ -438,7 +449,7 @@ class OpenAIService:
             })
 
             response = await self._call_chat(
-                model=settings.LLM_MODEL,
+                model=settings.LLM_MODEL_MINI,
                 messages=messages,
                 temperature=0.7,
                 max_tokens=1500,

@@ -7,6 +7,7 @@ audio downloading with multi-strategy fallback, and audio processing.
 import logging
 import os
 import re
+import shutil
 import tempfile
 from typing import Optional, List
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -15,16 +16,73 @@ import yt_dlp
 from openai import OpenAI
 from pydub import AudioSegment
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api._errors import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    YouTubeRequestFailed,
+)
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+_redis_client = None
+WHISPER_DIRECT_EXTENSIONS = {
+    ".flac",
+    ".m4a",
+    ".mp3",
+    ".mpeg",
+    ".mpga",
+    ".oga",
+    ".ogg",
+    ".wav",
+    ".webm",
+}
 
 
 def _log_extra(video_id: str = "unknown", **kwargs) -> dict:
     """Build structured extra dict for all YouTube log calls."""
     return {"video_id": video_id, **kwargs}
+
+
+def _get_redis_client():
+    """Lazily initialize sync Redis client for fast transcript caching."""
+    global _redis_client
+    if _redis_client is None:
+        try:
+            import redis
+            _redis_client = redis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=1,
+                socket_timeout=1,
+            )
+            _redis_client.ping()
+        except Exception as e:
+            logger.warning(f"[YouTube] Redis transcript cache unavailable: {e}")
+            _redis_client = False
+    return _redis_client if _redis_client is not False else None
+
+
+def _get_cached_transcript(video_id: str) -> Optional[str]:
+    redis_client = _get_redis_client()
+    if not redis_client:
+        return None
+
+    try:
+        return redis_client.get(f"youtube:transcript:{video_id}")
+    except Exception:
+        return None
+
+
+def _set_cached_transcript(video_id: str, transcript: str, ttl: int = 7 * 24 * 3600) -> None:
+    redis_client = _get_redis_client()
+    if not redis_client:
+        return
+
+    try:
+        redis_client.setex(f"youtube:transcript:{video_id}", ttl, transcript)
+    except Exception:
+        pass
 
 # Initialize OpenAI client for Whisper
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -477,39 +535,58 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
 
     logger.info(f"[YouTube:{video_id}] Extracting transcript from: {url}")
 
+    cached_transcript = _get_cached_transcript(video_id)
+    if cached_transcript:
+        logger.info(f"[YouTube:{video_id}] Cache hit for transcript ({len(cached_transcript)} chars)")
+        return cached_transcript
+
     # Strategy 1: Try to get subtitles
     try:
         logger.info(f"[YouTube:{video_id}] Strategy 1: Attempting to get subtitles...")
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
 
-        transcript = None
+        transcript_candidates = []
+        seen_candidates = set()
+
+        def add_candidate(candidate):
+            if candidate is None:
+                return
+            candidate_key = (
+                getattr(candidate, "language_code", None),
+                getattr(candidate, "is_generated", None),
+                getattr(candidate, "is_translatable", None),
+            )
+            if candidate_key in seen_candidates:
+                return
+            seen_candidates.add(candidate_key)
+            transcript_candidates.append(candidate)
 
         # Step 1a: Try manual transcripts in preferred languages first
         try:
-            transcript = transcript_list.find_manually_created_transcript([language, 'en', 'ru'])
-            logger.info(f"[YouTube:{video_id}] Found manual transcript: {transcript.language_code}")
+            add_candidate(
+                transcript_list.find_manually_created_transcript([language, 'en', 'ru'])
+            )
         except Exception:
             pass
 
         # Step 1b: Try auto-generated transcripts
-        if transcript is None:
-            try:
-                transcript = transcript_list.find_generated_transcript([language, 'en', 'ru'])
-                logger.info(f"[YouTube:{video_id}] Found auto-generated transcript: {transcript.language_code}")
-            except Exception:
-                pass
+        try:
+            add_candidate(
+                transcript_list.find_generated_transcript([language, 'en', 'ru'])
+            )
+        except Exception:
+            pass
 
         # Step 1c: Try any available transcript and translate
-        if transcript is None:
-            logger.info(f"[YouTube:{video_id}] Preferred languages not found, trying translation...")
+        available_transcripts = list(transcript_list)
+        for available in available_transcripts:
+            add_candidate(available)
+
+        for available in available_transcripts:
+            if not getattr(available, "is_translatable", False):
+                continue
             try:
-                available_transcripts = list(transcript_list)
-                if available_transcripts:
-                    any_transcript = available_transcripts[0]
-                    logger.info(
-                        f"[YouTube:{video_id}] Translating from {any_transcript.language_code} to English..."
-                    )
-                    transcript = any_transcript.translate('en')
+                add_candidate(available.translate('en'))
             except Exception as translate_error:
                 logger.warning(
                     f"[YouTube:{video_id}] Translation failed: "
@@ -521,39 +598,45 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
                     ),
                 )
 
-        if transcript is None:
+        if not transcript_candidates:
             raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
-        # Fetch and validate
-        try:
-            transcript_data = transcript.fetch()
+        for transcript in transcript_candidates:
+            try:
+                logger.info(
+                    f"[YouTube:{video_id}] Trying transcript candidate "
+                    f"{transcript.language_code} (generated={getattr(transcript, 'is_generated', False)})"
+                )
+                transcript_data = transcript.fetch()
 
-            if not transcript_data or len(transcript_data) == 0:
-                raise ValueError(f"[YouTube:{video_id}] Transcript data is empty")
+                if not transcript_data or len(transcript_data) == 0:
+                    raise ValueError(f"[YouTube:{video_id}] Transcript data is empty")
 
-            full_text = ' '.join([entry.get('text', '') for entry in transcript_data if entry.get('text')])
+                full_text = ' '.join([entry.get('text', '') for entry in transcript_data if entry.get('text')])
 
-            if not full_text or len(full_text.strip()) < 10:
-                raise ValueError(
-                    f"[YouTube:{video_id}] Extracted text too short: {len(full_text)} characters"
+                if not full_text or len(full_text.strip()) < 10:
+                    raise ValueError(
+                        f"[YouTube:{video_id}] Extracted text too short: {len(full_text)} characters"
+                    )
+
+                _set_cached_transcript(video_id, full_text)
+                logger.info(
+                    f"[YouTube:{video_id}] ✓ Strategy 1 successful: "
+                    f"{len(full_text)} characters from subtitles"
+                )
+                return full_text
+
+            except (XMLParseError, ValueError, YouTubeRequestFailed) as fetch_error:
+                logger.warning(
+                    f"[YouTube:{video_id}] Failed to fetch transcript candidate: "
+                    f"{type(fetch_error).__name__}: {str(fetch_error)}",
+                    exc_info=True,
+                    extra=_log_extra(video_id=video_id, error_type=type(fetch_error).__name__),
                 )
 
-            logger.info(
-                f"[YouTube:{video_id}] ✓ Strategy 1 successful: "
-                f"{len(full_text)} characters from subtitles"
-            )
-            return full_text
+        raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
-        except (XMLParseError, ValueError) as fetch_error:
-            logger.warning(
-                f"[YouTube:{video_id}] Failed to fetch transcript: "
-                f"{type(fetch_error).__name__}: {str(fetch_error)}",
-                exc_info=True,
-                extra=_log_extra(video_id=video_id, error_type=type(fetch_error).__name__),
-            )
-            raise NoTranscriptFound(video_id, ['ru', 'en'], None)
-
-    except (TranscriptsDisabled, NoTranscriptFound, XMLParseError, ValueError) as e:
+    except (TranscriptsDisabled, NoTranscriptFound, XMLParseError, ValueError, YouTubeRequestFailed) as e:
         logger.warning(
             f"[YouTube:{video_id}] Strategy 1 failed: {type(e).__name__}: {str(e)}",
             extra=_log_extra(video_id=video_id, strategy="subtitles", error_type=type(e).__name__),
@@ -567,14 +650,18 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
         try:
             temp_dir = tempfile.mkdtemp()
             audio_file = download_youtube_audio(url, temp_dir)
-            
-            # Convert to MP3 for OpenAI Whisper compatibility
-            if not audio_file.endswith('.mp3'):
+            audio_ext = os.path.splitext(audio_file)[1].lower()
+
+            if audio_ext not in WHISPER_DIRECT_EXTENSIONS:
                 mp3_path = audio_file.rsplit('.', 1)[0] + '.mp3'
+                logger.info(
+                    f"[YouTube:{video_id}] Converting {audio_ext or 'unknown'} to mp3 for Whisper compatibility"
+                )
                 compress_audio(audio_file, mp3_path, '192k')
                 audio_file = mp3_path
-            
+
             full_text = transcribe_audio_with_whisper(audio_file)
+            _set_cached_transcript(video_id, full_text)
 
             logger.info(
                 f"[YouTube:{video_id}] ✓ Strategy 2 successful: "
@@ -613,7 +700,7 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
 
             if temp_dir and os.path.exists(temp_dir):
                 try:
-                    os.rmdir(temp_dir)
+                    shutil.rmtree(temp_dir)
                 except Exception as cleanup_error:
                     logger.warning(
                         f"[YouTube:{video_id}] Cleanup temp dir failed: {cleanup_error}",

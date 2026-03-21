@@ -17,8 +17,11 @@ import { FlashcardsView } from './components/dashboard/FlashcardsView';
 import { LanguagesView } from './components/dashboard/LanguagesView';
 import { ExamView } from './components/dashboard/ExamView';
 import { UploadModal } from './components/shared/UploadModal';
+import { UpgradeModal } from './components/shared/UpgradeModal';
 import { Toaster } from './components/ui/sonner';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PricingPage } from './pages/PricingPage';
+import { projectsApi } from './services/api';
 
 export type ViewState = 'dashboard' | 'activity' | 'library' | 'flashcards' | 'languages' | 'exam' | 'profile' | 'materials';
 
@@ -58,9 +61,22 @@ function DashboardWrapper() {
     setUploadModalOpen(false);
   };
 
-  const handleUploadSuccess = (projectId: string) => {
-    setRefreshTrigger(prev => prev + 1);
+  const openProjectDestination = async (projectId: string) => {
+    try {
+      const project = await projectsApi.get(projectId);
+      if (project.materials.length === 1) {
+        navigate(`/dashboard/materials/${project.materials[0].id}`);
+        return;
+      }
+    } catch {
+      // Fall back to the project page if project lookup fails.
+    }
     navigate(`/dashboard/projects/${projectId}`);
+  };
+
+  const handleUploadSuccess = async (projectId: string) => {
+    setRefreshTrigger(prev => prev + 1);
+    await openProjectDestination(projectId);
   };
 
   const handleMaterialClick = (materialId: string) => {
@@ -69,8 +85,8 @@ function DashboardWrapper() {
     navigate(`/dashboard/materials/${materialId}`);
   };
 
-  const handleProjectClick = (projectId: string) => {
-    navigate(`/dashboard/projects/${projectId}`);
+  const handleProjectClick = async (projectId: string) => {
+    await openProjectDestination(projectId);
   };
 
   return (
@@ -82,7 +98,7 @@ function DashboardWrapper() {
         onProjectSelect={handleProjectClick}
       >
         <Routes>
-          <Route index element={<DashboardHome key={refreshTrigger} onMaterialClick={handleMaterialClick} onUpload={handleUpload} />} />
+          <Route index element={<DashboardHome key={refreshTrigger} onMaterialClick={handleMaterialClick} onProjectClick={handleProjectClick} onUpload={handleUpload} />} />
           <Route path="activity" element={<ActivityView key={refreshTrigger} onProjectClick={handleMaterialClick} onUpload={handleUpload} />} />
           <Route path="library" element={<LibraryView key={refreshTrigger} onProjectClick={handleMaterialClick} onUpload={handleUpload} />} />
           <Route path="flashcards" element={<FlashcardsView />} />
@@ -115,11 +131,13 @@ export default function App() {
         <ErrorBoundary>
           <div className="min-h-screen bg-background font-sans text-foreground selection:bg-primary/20 selection:text-primary dark">
             <Toaster />
+            <UpgradeModal />
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<LandingPageWrapper />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
 
               {/* Protected routes */}
               <Route

@@ -8,6 +8,7 @@ export interface User {
   oauth_provider?: string;
   created_at: string;
   updated_at: string;
+  subscription?: Subscription;
 }
 
 export interface AuthResponse {
@@ -164,9 +165,41 @@ export interface TutorHistoryResponse {
   total: number;
 }
 
+// Subscription & Billing types
+export type PlanTier = 'free' | 'student' | 'pro';
+
+export interface Subscription {
+  plan_tier: PlanTier;
+  status: 'active' | 'past_due' | 'canceled' | 'trialing';
+  current_period_end?: string;
+  cancel_at_period_end: boolean;
+}
+
+export interface UsageSummary {
+  resource_type: string;
+  used: number;
+  limit: number; // -1 = unlimited
+}
+
+export interface BillingInfo {
+  subscription: Subscription;
+  usage: UsageSummary[];
+}
+
+export interface QuotaExceededError {
+  error: 'quota_exceeded' | 'plan_required';
+  resource_type?: string;
+  used?: number;
+  limit?: number;
+  required_plan?: string;
+  current_plan?: string;
+  message: string;
+  upgrade_url: string;
+}
+
 // API Response types
 export interface ApiError {
-  detail: string;
+  detail: string | QuotaExceededError;
 }
 
 export interface PaginatedResponse<T> {
@@ -178,11 +211,13 @@ export interface PaginatedResponse<T> {
 
 // Search types
 export type SearchResultType = 'pdf' | 'youtube' | 'article';
+export type SearchPhase = 'fast' | 'full';
 
 export interface SearchRequest {
   query: string;
   types?: SearchResultType[];
   limit?: number;
+  phase?: SearchPhase;
 }
 
 export interface SearchResult {
@@ -199,4 +234,8 @@ export interface SearchResponse {
   query: string;
   results: SearchResult[];
   total_results: number;
+  ai_answer?: string;
+  is_partial: boolean;
+  pending_types: SearchResultType[];
+  cached: boolean;
 }

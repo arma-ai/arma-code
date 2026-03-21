@@ -24,7 +24,11 @@ function Header({}: React.ComponentProps<"header">) {
             
             <div className="hidden md:flex items-center gap-8">
             {['Features', 'Pricing', 'About'].map((item) => (
-                <button key={item} className="text-sm font-medium text-white/60 hover:text-white transition-colors relative group cursor-pointer">
+                <button
+                  key={item}
+                  onClick={() => item === 'Pricing' ? navigate('/pricing') : undefined}
+                  className="text-sm font-medium text-white/60 hover:text-white transition-colors relative group cursor-pointer"
+                >
                 {item}
                 <span className="absolute -bottom-1 left-0 w-0 h-px bg-primary transition-all group-hover:w-full" />
                 </button>

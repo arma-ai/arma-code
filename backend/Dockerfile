@@ -4,12 +4,14 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     curl \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    ffmpeg
 
 # Copy requirements
 COPY requirements.txt .

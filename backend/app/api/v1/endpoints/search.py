@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.api.dependencies import get_current_active_user
 from app.infrastructure.database.models.user import User
-from app.schemas.search import SearchRequest, SearchResponse
+from app.schemas.search import SearchPhase, SearchRequest, SearchResponse
 from app.domain.services.web_search_service import WebSearchService
 
 logger = logging.getLogger(__name__)
@@ -47,29 +47,44 @@ async def search_web(
         search_service = WebSearchService()
         
         # First try to find materials
-        results = await search_service.search(
+        search_result = await search_service.search(
             query=search_request.query,
             types=search_request.types,
-            limit=search_request.limit
+            limit=search_request.limit,
+            phase=search_request.phase,
         )
-        
-        # If materials found, return them
-        if results:
+
+        if search_result.results:
             return SearchResponse(
                 query=search_request.query,
-                results=results,
-                total_results=len(results)
+                results=search_result.results,
+                total_results=len(search_result.results),
+                is_partial=search_result.is_partial,
+                pending_types=search_result.pending_types,
+                cached=search_result.cached,
             )
-        
-        # No materials found - get AI answer directly
+
+        if search_request.phase == SearchPhase.FAST:
+            return SearchResponse(
+                query=search_request.query,
+                results=[],
+                total_results=0,
+                is_partial=search_result.is_partial,
+                pending_types=search_result.pending_types,
+                cached=search_result.cached,
+            )
+
         logger.info(f"[Search] No materials found for '{search_request.query[:50]}...', getting AI answer")
         ai_answer = await search_service.get_ai_answer(search_request.query)
-        
+
         return SearchResponse(
             query=search_request.query,
             results=[],
             total_results=0,
-            ai_answer=ai_answer  # type: ignore
+            ai_answer=ai_answer,  # type: ignore
+            is_partial=search_result.is_partial,
+            pending_types=search_result.pending_types,
+            cached=search_result.cached,
         )
 
     except Exception as e:
@@ -78,4 +93,3 @@ async def search_web(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}"
         )
-

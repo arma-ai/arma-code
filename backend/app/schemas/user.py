@@ -6,6 +6,7 @@ from uuid import UUID
 from typing import Optional
 
 from app.schemas.common import BaseSchema, TimestampSchema
+from app.schemas.subscription import SubscriptionResponse
 
 
 class UserBase(BaseModel):
@@ -65,6 +66,7 @@ class UserResponse(TimestampSchema):
     is_oauth: bool
     oauth_provider: Optional[str] = None
     updated_at: datetime
+    subscription: Optional[SubscriptionResponse] = None
 
     model_config = ConfigDict(
         from_attributes=True,

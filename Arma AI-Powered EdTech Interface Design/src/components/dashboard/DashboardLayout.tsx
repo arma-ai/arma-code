@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, FileText, Youtube, Clock, Settings, LogOut, Plus, Search, Bell, Brain, Sparkles, Layers, GraduationCap, Globe, User, X, Check, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, FileText, Youtube, Clock, Settings, LogOut, Plus, Search, Bell, Brain, Sparkles, GraduationCap, User, X, Check, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import type { ViewState } from '../../App';
@@ -92,34 +92,16 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
             onClick={() => onNavigate('dashboard')}
           />
           <SidebarItem 
-            icon={<Clock size={18} />} 
-            label="Activity" 
-            active={currentView === 'activity'} 
-            onClick={() => onNavigate('activity')}
-          />
-          <SidebarItem 
             icon={<FileText size={18} />} 
             label="Library" 
             active={currentView === 'library'} 
             onClick={() => onNavigate('library')}
           />
           <SidebarItem 
-            icon={<Layers size={18} />} 
-            label="Flashcards" 
-            active={currentView === 'flashcards'} 
-            onClick={() => onNavigate('flashcards')}
-          />
-          <SidebarItem 
             icon={<GraduationCap size={18} />} 
             label="Exam Prep" 
             active={currentView === 'exam'} 
             onClick={() => onNavigate('exam')}
-          />
-          <SidebarItem 
-            icon={<Globe size={18} />} 
-            label="Languages" 
-            active={currentView === 'languages'} 
-            onClick={() => onNavigate('languages')}
           />
 
           <div className="pt-8 pb-2">
@@ -157,12 +139,24 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
               {user?.full_name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white/80 truncate group-hover:text-white transition-colors">
-                {user?.full_name || user?.email || 'User'}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-white/80 truncate group-hover:text-white transition-colors">
+                  {user?.full_name || user?.email || 'User'}
+                </p>
+                <PlanBadge tier={user?.subscription?.plan_tier || 'free'} />
+              </div>
             </div>
             <Settings className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors" />
           </div>
+          {user?.subscription?.plan_tier !== 'pro' && (
+            <button
+              onClick={() => navigate('/pricing')}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+            >
+              <Sparkles className="w-3 h-3" />
+              Upgrade
+            </button>
+          )}
 
           <button
             onClick={handleLogout}
@@ -181,7 +175,6 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
         {/* MOBILE BOTTOM NAV */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0C0C0F] border-t border-white/10 z-50 flex items-center justify-around px-2">
            <MobileNavItem icon={<LayoutDashboard />} label="Home" active={currentView === 'dashboard'} onClick={() => onNavigate('dashboard')} />
-           <MobileNavItem icon={<Clock />} label="Activity" active={currentView === 'activity'} onClick={() => onNavigate('activity')} />
            <MobileNavItem icon={<FileText />} label="Library" active={currentView === 'library'} onClick={() => onNavigate('library')} />
            <MobileNavItem icon={<User />} label="Profile" active={currentView === 'profile'} onClick={() => onNavigate('profile')} />
            
@@ -194,10 +187,10 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
         </div>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col relative z-10 h-full max-h-screen pt-4 pr-4 pb-4 pl-4 md:pl-0">
+      <div className="flex-1 min-w-0 flex flex-col relative z-10 h-full max-h-screen pt-0 px-0 pb-20 md:pt-4 md:pr-4 md:pb-4 md:pl-0">
         
         {/* TOP BAR */}
-        <header className="h-14 flex items-center justify-between px-6 mb-2 flex-shrink-0">
+        <header className="h-10 md:h-14 flex items-center justify-between px-4 md:px-6 mb-2 flex-shrink-0">
           <div className="flex items-center gap-2 text-sm text-muted-foreground/60">
              <span className="hover:text-white/80 transition-colors" onClick={() => onNavigate('dashboard')}>Arma</span>
              <span>/</span>
@@ -205,7 +198,7 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
           </div>
 
           <div className="flex items-center gap-4">
-             <div onClick={handleModelChange} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-white/70 hover:bg-white/10 transition-colors">
+             <div onClick={handleModelChange} className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-white/70 hover:bg-white/10 transition-colors">
                <Sparkles className="w-3 h-3 text-primary" />
                <span>{modelName}</span>
              </div>
@@ -218,9 +211,9 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
         </header>
 
         {/* DASHBOARD FRAME */}
-        <main className="flex-1 rounded-[32px] border border-white/[0.08] bg-[#121215]/80 backdrop-blur-2xl shadow-2xl relative overflow-hidden flex flex-col">
-           <div className="absolute inset-0 pointer-events-none rounded-[32px] ring-1 ring-inset ring-white/[0.05]" />
-           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 z-20 pointer-events-none" />
+        <main className="flex-1 rounded-none md:rounded-[32px] border-0 md:border md:border-white/[0.08] bg-[#0C0C0F] md:bg-[#121215]/80 md:backdrop-blur-2xl shadow-none md:shadow-2xl relative overflow-hidden flex flex-col">
+           <div className="absolute inset-0 pointer-events-none rounded-none md:rounded-[32px] ring-0 md:ring-1 ring-inset ring-white/[0.05] hidden md:block" />
+           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 z-20 pointer-events-none hidden md:block" />
            
            <div id="ContentScroll" className="flex-1 overflow-y-auto relative scrollbar-hide clip-content">
               {children}
@@ -331,6 +324,20 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode, 
       </span>
       {label}
     </button>
+  );
+}
+
+function PlanBadge({ tier }: { tier: string }) {
+  const config: Record<string, { label: string; className: string }> = {
+    free: { label: 'Free', className: 'bg-white/10 text-white/50' },
+    student: { label: 'Student', className: 'bg-blue-500/20 text-blue-400' },
+    pro: { label: 'Pro', className: 'bg-primary/20 text-primary' },
+  };
+  const { label, className } = config[tier] || config.free;
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${className}`}>
+      {label}
+    </span>
   );
 }
 

@@ -189,10 +189,10 @@ def process_material_task(
 
     # Run async function in a new event loop
     # This is necessary because Celery runs in a sync context
-    import nest_asyncio
     try:
+        import nest_asyncio
         nest_asyncio.apply()
-    except:
+    except Exception:
         pass
     
     try:
@@ -533,24 +533,12 @@ def process_material_batch_task(
 
                 processing_service = MaterialProcessingService(session)
 
-                # Generate content in parallel
-                import asyncio
-                results = await asyncio.gather(
+                summary_text, notes_text, flashcards_data, quiz_data = await asyncio.gather(
                     processing_service.ai_service.generate_summary(combined_text),
                     processing_service.ai_service.generate_notes(combined_text),
                     processing_service.ai_service.generate_flashcards(combined_text, count=20),
                     processing_service.ai_service.generate_quiz(combined_text, count=15),
-                    return_exceptions=True,
                 )
-
-                summary_text, notes_text, flashcards_data, quiz_data = results
-
-                # Check for errors
-                for name, result in [("summary", summary_text), ("notes", notes_text),
-                                    ("flashcards", flashcards_data), ("quiz", quiz_data)]:
-                    if isinstance(result, Exception):
-                        logger.error(f"[process_material_batch] AI generation failed: {name}")
-                        raise result
 
                 # Step 5: Save to ProjectContent
                 logger.info(f"[process_material_batch] Saving project content")
@@ -636,10 +624,10 @@ def process_material_batch_task(
                 }
     
     # Run async function
-    import nest_asyncio
     try:
+        import nest_asyncio
         nest_asyncio.apply()
-    except:
+    except Exception:
         pass
     
     try:

@@ -19,6 +19,9 @@ import type {
   ApiError,
   SearchRequest,
   SearchResponse,
+  BillingInfo,
+  UsageSummary,
+  PlanTier,
 } from '../types/api';
 
 // Base configuration
@@ -41,7 +44,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: Handle 401 errors
+// Response interceptor: Handle 401 and 402 errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
@@ -50,6 +53,11 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       window.location.href = '/login';
+    }
+    if (error.response?.status === 402) {
+      // Dispatch quota-exceeded event for global UpgradeModal
+      const detail = error.response.data?.detail;
+      window.dispatchEvent(new CustomEvent('quota-exceeded', { detail }));
     }
     return Promise.reject(error);
   }
@@ -461,6 +469,37 @@ export const projectsApi = {
     return response.data;
   },
 
+};
+
+// ============================================================================
+// BILLING API
+// ============================================================================
+export const billingApi = {
+  getSubscription: async (): Promise<BillingInfo> => {
+    const response = await apiClient.get<BillingInfo>('/billing/subscription');
+    return response.data;
+  },
+
+  createCheckout: async (planTier: PlanTier, successUrl: string, cancelUrl: string): Promise<string> => {
+    const response = await apiClient.post<{ checkout_url: string }>('/billing/checkout', {
+      plan_tier: planTier,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+    return response.data.checkout_url;
+  },
+
+  createPortal: async (returnUrl: string): Promise<string> => {
+    const response = await apiClient.post<{ portal_url: string }>('/billing/portal', {
+      return_url: returnUrl,
+    });
+    return response.data.portal_url;
+  },
+
+  getUsage: async (): Promise<{ usage: UsageSummary[] }> => {
+    const response = await apiClient.get<{ usage: UsageSummary[] }>('/billing/usage');
+    return response.data;
+  },
 };
 
 // ============================================================================

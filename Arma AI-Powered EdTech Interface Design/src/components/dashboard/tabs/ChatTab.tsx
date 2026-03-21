@@ -146,7 +146,7 @@ export function ChatTab({ material, projectId, messages, sendMessage, sending, l
       <div 
         ref={messagesContainerRef}
         onScroll={checkScroll}
-        className="flex-1 overflow-y-auto p-8 space-y-6"
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6"
       >
          {messages.length === 0 ? (
            <div className="flex items-center justify-center h-full">
@@ -219,7 +219,7 @@ export function ChatTab({ material, projectId, messages, sendMessage, sending, l
       {messages.length > 3 && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-28 right-8 p-2 rounded-full bg-primary text-black shadow-lg hover:bg-primary/90 transition-all opacity-50 hover:opacity-100"
+          className="absolute bottom-24 right-4 md:bottom-28 md:right-8 p-2 rounded-full bg-primary text-black shadow-lg hover:bg-primary/90 transition-all opacity-50 hover:opacity-100"
           title="Scroll to bottom"
         >
           <ArrowLeft size={20} className="rotate-90" />
@@ -227,7 +227,7 @@ export function ChatTab({ material, projectId, messages, sendMessage, sending, l
       )}
 
       {/* Input Area */}
-      <div className="p-6 shrink-0 max-w-3xl mx-auto w-full">
+      <div className="p-3 md:p-6 shrink-0 max-w-3xl mx-auto w-full">
          <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
             {['Summarize section 2', 'Create flashcards', 'Explain key terms', 'Give me a quiz'].map(suggestion => (
               <button

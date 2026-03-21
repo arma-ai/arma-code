@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authApi, setAuthToken, removeAuthToken, getAuthToken } from '../services/api';
-import type { User, LoginRequest, RegisterRequest } from '../types/api';
+import type { User, LoginRequest, RegisterRequest, Subscription } from '../types/api';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  subscription: Subscription | null;
   login: (credentials: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,13 +84,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
   };
 
+  const refreshSubscription = async () => {
+    try {
+      const userData = await authApi.getMe();
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch {
+      // ignore
+    }
+  };
+
+  const subscription = user?.subscription ?? null;
+
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated: !!user,
+    subscription,
     login,
     register,
     logout,
+    refreshSubscription,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

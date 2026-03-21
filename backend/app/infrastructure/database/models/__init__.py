@@ -18,6 +18,14 @@ from app.infrastructure.database.models.quiz import QuizQuestion
 from app.infrastructure.database.models.flashcard import Flashcard
 from app.infrastructure.database.models.embedding import MaterialEmbedding
 from app.infrastructure.database.models.quiz_attempt import QuizAttempt
+from app.infrastructure.database.models.subscription import (
+    Subscription,
+    UsageRecord,
+    StripeEvent,
+    PlanLimit,
+    PlanTier,
+    SubscriptionStatus,
+)
 
 __all__ = [
     "User",
@@ -35,4 +43,10 @@ __all__ = [
     "Flashcard",
     "MaterialEmbedding",
     "QuizAttempt",
+    "Subscription",
+    "UsageRecord",
+    "StripeEvent",
+    "PlanLimit",
+    "PlanTier",
+    "SubscriptionStatus",
 ]

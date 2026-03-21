@@ -13,6 +13,12 @@ class SearchResultType(str, Enum):
     ARTICLE = "article"
 
 
+class SearchPhase(str, Enum):
+    """Search response phase."""
+    FAST = "fast"
+    FULL = "full"
+
+
 class SearchRequest(BaseModel):
     """Request schema for web search."""
     query: str = Field(..., min_length=1, max_length=500, description="Search query")
@@ -21,13 +27,15 @@ class SearchRequest(BaseModel):
         description="Types of results to search for"
     )
     limit: int = Field(default=10, ge=1, le=50, description="Maximum results per type")
+    phase: SearchPhase = Field(default=SearchPhase.FAST, description="Search phase")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "query": "machine learning basics",
                 "types": ["pdf", "youtube", "article"],
-                "limit": 10
+                "limit": 10,
+                "phase": "fast"
             }
         }
     )
@@ -64,6 +72,9 @@ class SearchResponse(BaseModel):
     results: List[SearchResult] = Field(default=[], description="Search results")
     total_results: int = Field(default=0, description="Total number of results found")
     ai_answer: Optional[str] = Field(None, description="AI-generated answer when no materials found")
+    is_partial: bool = Field(default=False, description="Whether more results may arrive in a later phase")
+    pending_types: List[SearchResultType] = Field(default=[], description="Result types not included yet")
+    cached: bool = Field(default=False, description="Whether the response was served from cache")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -71,8 +82,10 @@ class SearchResponse(BaseModel):
                 "query": "machine learning basics",
                 "results": [],
                 "total_results": 0,
-                "ai_answer": "Machine learning is a subset of AI that..."
+                "ai_answer": "Machine learning is a subset of AI that...",
+                "is_partial": True,
+                "pending_types": ["article"],
+                "cached": False
             }
         }
     )
-

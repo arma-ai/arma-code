@@ -70,6 +70,9 @@ prometheus-client==0.23.1
 # Retry Logic
 tenacity==9.1.2
 
+# Payments
+stripe>=8.0.0
+
 # HTTP Client
 httpx==0.28.1
 httpx-sse==0.4.3
