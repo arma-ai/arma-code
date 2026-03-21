@@ -6,7 +6,7 @@ import { useMaterials, useProjects } from '../../hooks/useApi';
 import { toast } from 'sonner';
 import { SearchResultsModal } from '../shared/SearchResultsModal';
 import { searchApi, materialsApi } from '../../services/api';
-import type { SearchResult } from '../../types/api';
+import type { SearchPhase, SearchResponse, SearchResult } from '../../types/api';
 import { ProjectCard } from './ProjectCard';
 
 // Pool of learning suggestions organized by category
@@ -93,6 +93,8 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
   const [aiAnswer, setAiAnswer] = useState<string | undefined>(undefined);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isRefiningSearch, setIsRefiningSearch] = useState(false);
+  const [searchPhase, setSearchPhase] = useState<SearchPhase>('fast');
   const [suggestions, setSuggestions] = useState<string[]>(() => getRandomSuggestions(3));
   const [suggestionKey, setSuggestionKey] = useState(0); // For animation reset
   const { materials, loading, refetch } = useMaterials();
@@ -120,6 +122,37 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
   // Get recent materials (last 6)
   const recentMaterials = materials.slice(0, 6);
 
+  const mergeSearchResults = useCallback((current: SearchResult[], incoming: SearchResult[]) => {
+    const merged = new Map<string, SearchResult>();
+
+    for (const result of current) {
+      merged.set(result.url, result);
+    }
+
+    for (const result of incoming) {
+      merged.set(result.url, result);
+    }
+
+    return Array.from(merged.values());
+  }, []);
+
+  const sortSearchResults = useCallback((results: SearchResult[]) => {
+    const sourceScore = (result: SearchResult) => {
+      const source = (result.source || '').toLowerCase();
+
+      if (result.type === 'youtube') return 200;
+      if (source.includes('arxiv.org')) return 180;
+      if (source.includes('docs.python.org')) return 170;
+      if (source.includes('python.org')) return 165;
+      if (source.includes('w3schools.com')) return 160;
+      if (source.includes('youtube.com')) return 150;
+      if (source.includes('researchgate.net')) return 20;
+      return 100;
+    };
+
+    return [...results].sort((a, b) => sourceScore(b) - sourceScore(a));
+  }, []);
+
   const handleSearch = async (query?: string) => {
     const searchText = query || inputValue;
     if (!searchText.trim()) return;
@@ -130,19 +163,45 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
     }
 
     setSearchQuery(searchText);
+    setSearchPhase('fast');
     setIsSearching(true);
+    setIsRefiningSearch(false);
     setIsSearchModalOpen(true);
     setSearchResults([]);
     setAiAnswer(undefined);
 
     try {
-      const response = await searchApi.search({
+      const fastResponse = await searchApi.search({
         query: searchText,
         types: ['pdf', 'youtube', 'article'],
-        limit: 10
+        limit: 10,
+        phase: 'fast',
       });
-      setSearchResults(response.results || []);
-      setAiAnswer((response as any).ai_answer);  // AI answer when no materials found
+
+      setSearchResults(sortSearchResults(fastResponse.results || []));
+      setAiAnswer(fastResponse.ai_answer);
+      setSearchPhase('fast');
+
+      if (fastResponse.is_partial) {
+        setIsRefiningSearch(true);
+
+        try {
+          const fullResponse = await searchApi.search({
+            query: searchText,
+            types: ['pdf', 'youtube', 'article'],
+            limit: 10,
+            phase: 'full',
+          });
+
+          setSearchResults((prev) => sortSearchResults(mergeSearchResults(prev, fullResponse.results || [])));
+          setAiAnswer(fullResponse.ai_answer ?? fastResponse.ai_answer);
+          setSearchPhase('full');
+        } catch {
+          toast.error('Refined search failed. Showing fast results only.');
+        } finally {
+          setIsRefiningSearch(false);
+        }
+      }
     } catch (error) {
       toast.error('Failed to search. Please try again.');
     } finally {
@@ -371,6 +430,8 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick }: Das
           query={searchQuery}
           results={searchResults}
           loading={isSearching}
+          refining={isRefiningSearch}
+          phase={searchPhase}
           aiAnswer={aiAnswer}
           onClose={() => setIsSearchModalOpen(false)}
           onSelectResult={handleSelectResult}

@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { X, FileText, Youtube, Globe, Loader2, Plus, ExternalLink, Search, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import type { SearchResult, SearchResultType } from '../../types/api';
+import type { SearchPhase, SearchResult, SearchResultType } from '../../types/api';
 
 interface SearchResultsModalProps {
   query: string;
   results: SearchResult[];
   loading: boolean;
+  refining?: boolean;
+  phase?: SearchPhase;
   onClose: () => void;
   onSelectResult: (result: SearchResult) => Promise<boolean | void>;
   aiAnswer?: string;  // AI answer when no materials found
@@ -17,6 +19,8 @@ export function SearchResultsModal({
   query,
   results,
   loading,
+  refining = false,
+  phase = 'fast',
   onClose,
   onSelectResult,
   aiAnswer
@@ -48,7 +52,11 @@ export function SearchResultsModal({
         toast.success(`Added "${result.title}" to your materials`);
       }
     } catch (error) {
-      toast.error('Failed to add material');
+      const detail =
+        (error as any)?.response?.data?.detail ||
+        (error as Error)?.message ||
+        'Failed to add material';
+      toast.error(typeof detail === 'string' ? detail : 'Failed to add material');
     } finally {
       setAddingId(null);
     }
@@ -136,19 +144,16 @@ export function SearchResultsModal({
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                <p className="text-white/80 font-medium mt-4">Searching the web...</p>
-                <p className="text-white/40 text-sm">Finding PDFs, videos, and articles</p>
+                <p className="text-white/80 font-medium mt-4">
+                  {phase === 'fast' ? 'Finding PDFs and videos...' : 'Searching the web...'}
+                </p>
+                <p className="text-white/40 text-sm">
+                  {phase === 'fast'
+                    ? 'Showing first-pass results as quickly as possible'
+                    : 'Finding PDFs, videos, and articles'}
+                </p>
               </div>
-            ) : filteredResults.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                  <Search size={24} className="text-white/20" />
-                </div>
-                <p className="text-white/60 font-medium">No results found</p>
-                <p className="text-white/40 text-sm">Try a different search term</p>
-              </div>
-            ) : aiAnswer ? (
-              // Show AI answer when no materials found
+            ) : aiAnswer && filteredResults.length === 0 ? (
               <div className="p-4 md:p-8 rounded-xl md:rounded-2xl border border-primary/20 bg-primary/5">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 flex items-center justify-center">
@@ -163,8 +168,24 @@ export function SearchResultsModal({
                   {aiAnswer}
                 </div>
               </div>
+            ) : filteredResults.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <Search size={24} className="text-white/20" />
+                </div>
+                <p className="text-white/60 font-medium">No results found</p>
+                <p className="text-white/40 text-sm">
+                  {refining ? 'Fast pass is empty. Refining and loading articles...' : 'Try a different search term'}
+                </p>
+              </div>
             ) : (
               <div className="flex flex-col gap-2 md:gap-3">
+                {refining && (
+                  <div className="flex items-center gap-3 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-white/70">
+                    <Loader2 size={14} className="animate-spin text-primary" />
+                    <span>Refining results and loading articles...</span>
+                  </div>
+                )}
                 {filteredResults.map((result, index) => (
                   <motion.div
                     key={result.url}

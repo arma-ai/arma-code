@@ -74,8 +74,20 @@ function DashboardWrapper() {
     navigate(`/dashboard/projects/${projectId}`);
   };
 
-  const handleUploadSuccess = async (projectId: string) => {
+  const handleUploadSuccess = async ({
+    projectId,
+    firstMaterialId,
+    totalFiles,
+  }: {
+    projectId: string;
+    firstMaterialId?: string;
+    totalFiles: number;
+  }) => {
     setRefreshTrigger(prev => prev + 1);
+    if (totalFiles === 1 && firstMaterialId) {
+      navigate(`/dashboard/materials/${firstMaterialId}`);
+      return;
+    }
     await openProjectDestination(projectId);
   };
 

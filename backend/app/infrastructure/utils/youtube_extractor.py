@@ -5,7 +5,7 @@ Handles transcript extraction via subtitles or Whisper API fallback,
 audio downloading with multi-strategy fallback, and audio processing.
 """
 import logging
-import multiprocessing.pool
+import concurrent.futures
 import os
 import re
 import shutil
@@ -148,9 +148,10 @@ def _download_subtitles_with_ytdlp(url: str, video_id: str, language: str = "en"
             "outtmpl": outtmpl,
             "quiet": True,
             "no_warnings": True,
-            "socket_timeout": 20,
-            "retries": 2,
+            "socket_timeout": 10,
+            "retries": 0,
             "nocheckcertificate": True,
+            "noplaylist": True,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -184,17 +185,29 @@ def _download_subtitles_with_ytdlp(url: str, video_id: str, language: str = "en"
 
 def _fetch_transcript_with_timeout(transcript, video_id: str, timeout_seconds: int = 8):
     """Fetch transcript entries without letting the provider hang the worker indefinitely."""
-    pool = multiprocessing.pool.ThreadPool(processes=1)
-    async_result = pool.apply_async(transcript.fetch)
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(transcript.fetch)
     try:
-        return async_result.get(timeout=timeout_seconds)
-    except multiprocessing.pool.TimeoutError as exc:
+        return future.result(timeout=timeout_seconds)
+    except concurrent.futures.TimeoutError as exc:
         raise TimeoutError(
             f"[YouTube:{video_id}] Transcript fetch timed out after {timeout_seconds}s"
         ) from exc
     finally:
-        pool.terminate()
-        pool.join()
+        # Do not wait here; the provider thread may be hung in network I/O.
+        executor.shutdown(wait=False, cancel_futures=True)
+
+
+def _run_with_timeout(func, *, timeout_seconds: int, error_message: str):
+    """Run a blocking provider call without letting it stall the worker forever."""
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(func)
+    try:
+        return future.result(timeout=timeout_seconds)
+    except concurrent.futures.TimeoutError as exc:
+        raise TimeoutError(error_message) from exc
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
 # Initialize OpenAI client for Whisper
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -256,7 +269,7 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
     # Updated: Don't skip HLS/DASH, add missing_pot for formats requiring PO token
     # Format: Prioritize audio-only formats, fallback to mp4 with audio (format 18)
     ydl_opts_ios = {
-        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/best[acodec!=none][ext=mp4]/best[acodec!=none]/bestaudio',
+        'format': 'bestaudio/best',
         'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
@@ -266,16 +279,17 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
                 'formats': 'missing_pot',  # Enable formats even without PO token
             }
         },
-        'socket_timeout': 30,
-        'retries': 5,
-        'fragment_retries': 5,
+        'socket_timeout': 15,
+        'retries': 2,
+        'fragment_retries': 2,
         'nocheckcertificate': True,
+        'noplaylist': True,
     }
 
     # Strategy 2: Android client with enhanced headers
     # Updated: Don't skip HLS/DASH, add missing_pot for formats requiring PO token
     ydl_opts_android = {
-        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/best[acodec!=none][ext=mp4]/best[acodec!=none]/bestaudio',
+        'format': 'bestaudio/best',
         'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
@@ -290,16 +304,17 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
                 'formats': 'missing_pot',  # Enable formats even without PO token
             }
         },
-        'socket_timeout': 30,
-        'retries': 5,
-        'fragment_retries': 5,
+        'socket_timeout': 15,
+        'retries': 2,
+        'fragment_retries': 2,
         'nocheckcertificate': True,
+        'noplaylist': True,
     }
 
     # Strategy 3: Web client with cookies (fallback)
     # Updated: Don't skip HLS/DASH for better format availability
     ydl_opts_web = {
-        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/best[acodec!=none][ext=mp4]/best[acodec!=none]/bestaudio',
+        'format': 'bestaudio/best',
         'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
@@ -314,12 +329,13 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
                 'player_client': ['web'],
             }
         },
-        'socket_timeout': 30,
-        'retries': 5,
-        'fragment_retries': 5,
+        'socket_timeout': 15,
+        'retries': 2,
+        'fragment_retries': 2,
         'nocheckcertificate': True,
         'age_limit': None,
         'geo_bypass': True,
+        'noplaylist': True,
     }
 
     strategies = [
@@ -333,7 +349,11 @@ def download_youtube_audio(url: str, output_path: Optional[str] = None) -> str:
         try:
             logger.info(f"[YouTube:{video_id}] Strategy: {strategy_name}")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                info = _run_with_timeout(
+                    lambda: ydl.extract_info(url, download=True),
+                    timeout_seconds=20,
+                    error_message=f"[YouTube:{video_id}] {strategy_name} download timed out after 20s",
+                )
                 dl_video_id = info['id']
 
                 possible_exts = ['m4a', 'webm', 'opus', 'mp4', 'mp3', 'ogg']
@@ -655,7 +675,21 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
     # Strategy 1: Try to get subtitles
     try:
         logger.info(f"[YouTube:{video_id}] Strategy 1: Attempting to get subtitles...")
-        transcript_list = _list_available_transcripts(video_id)
+        logger.info(f"[YouTube:{video_id}] Strategy 1a: Attempting subtitle-only yt-dlp fast path...")
+        subtitle_fast_path = _download_subtitles_with_ytdlp(url, video_id, language=language)
+        if subtitle_fast_path and len(subtitle_fast_path) >= 10:
+            _set_cached_transcript(video_id, subtitle_fast_path)
+            logger.info(
+                f"[YouTube:{video_id}] ✓ Strategy 1a successful: "
+                f"{len(subtitle_fast_path)} characters from yt-dlp subtitles"
+            )
+            return subtitle_fast_path
+
+        transcript_list = _run_with_timeout(
+            lambda: _list_available_transcripts(video_id),
+            timeout_seconds=5,
+            error_message=f"[YouTube:{video_id}] Transcript listing timed out after 5s",
+        )
 
         transcript_candidates = []
         seen_candidates = set()
@@ -696,16 +730,6 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
 
         if not transcript_candidates:
             raise NoTranscriptFound(video_id, ['ru', 'en'], None)
-
-        logger.info(f"[YouTube:{video_id}] Strategy 1a: Attempting subtitle-only yt-dlp fast path...")
-        subtitle_fast_path = _download_subtitles_with_ytdlp(url, video_id, language=language)
-        if subtitle_fast_path and len(subtitle_fast_path) >= 10:
-            _set_cached_transcript(video_id, subtitle_fast_path)
-            logger.info(
-                f"[YouTube:{video_id}] ✓ Strategy 1a successful: "
-                f"{len(subtitle_fast_path)} characters from yt-dlp subtitles"
-            )
-            return subtitle_fast_path
 
         transcript_provider_failed = False
         for transcript in transcript_candidates:
@@ -753,6 +777,9 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
                     extra=_log_extra(video_id=video_id, error_type=type(fetch_error).__name__),
                 )
 
+        if transcript_provider_failed:
+            raise ValueError("Transcript provider failed and subtitle download fallback returned no usable text")
+
         logger.info(f"[YouTube:{video_id}] Strategy 1b: Attempting subtitle-only yt-dlp fallback...")
         subtitle_fallback_text = _download_subtitles_with_ytdlp(url, video_id, language=language)
         if subtitle_fallback_text and len(subtitle_fallback_text) >= 10:
@@ -763,12 +790,9 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
             )
             return subtitle_fallback_text
 
-        if transcript_provider_failed:
-            raise ValueError("Transcript provider failed and subtitle download fallback returned no usable text")
-
         raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
-    except (TranscriptsDisabled, NoTranscriptFound, XMLParseError, ValueError, YouTubeRequestFailed) as e:
+    except (TranscriptsDisabled, NoTranscriptFound, XMLParseError, ValueError, YouTubeRequestFailed, TimeoutError) as e:
         logger.warning(
             f"[YouTube:{video_id}] Strategy 1 failed: {type(e).__name__}: {str(e)}",
             extra=_log_extra(video_id=video_id, strategy="subtitles", error_type=type(e).__name__),

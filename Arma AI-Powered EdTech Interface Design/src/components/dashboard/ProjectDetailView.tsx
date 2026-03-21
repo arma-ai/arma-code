@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -41,10 +41,10 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
   const projectId = urlId || propProjectId;
   const onBack = propOnBack || (() => navigate(-1));
   const { material, loading: materialLoading, refetch: refetchMaterial } = useMaterial(projectId);
-  const { summary, loading: summaryLoading } = useMaterialSummary(projectId);
-  const { notes, loading: notesLoading } = useMaterialNotes(projectId);
-  const { flashcards, loading: flashcardsLoading } = useFlashcards(projectId);
-  const { questions, loading: quizLoading } = useQuizQuestions(projectId);
+  const { summary, loading: summaryLoading, refetch: refetchSummary } = useMaterialSummary(projectId);
+  const { notes, loading: notesLoading, refetch: refetchNotes } = useMaterialNotes(projectId);
+  const { flashcards, loading: flashcardsLoading, refetch: refetchFlashcards } = useFlashcards(projectId);
+  const { questions, loading: quizLoading, refetch: refetchQuestions } = useQuizQuestions(projectId);
   const { messages, sendMessage, sending, loading: chatLoading } = useTutorChat(projectId);
 
   const [activeTab, setActiveTab] = useState<'chat' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides'>('chat');
@@ -52,6 +52,29 @@ export function ProjectDetailView({ projectId: propProjectId, onBack: propOnBack
   const isMobile = useIsMobile();
   const [mobileOutlineOpen, setMobileOutlineOpen] = useState(false);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!material || !['queued', 'processing'].includes(material.processing_status)) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      refetchMaterial();
+      refetchSummary();
+      refetchNotes();
+      refetchFlashcards();
+      refetchQuestions();
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [
+    material?.processing_status,
+    refetchMaterial,
+    refetchSummary,
+    refetchNotes,
+    refetchFlashcards,
+    refetchQuestions,
+  ]);
 
   // Loading state for the entire component
   if (materialLoading) {

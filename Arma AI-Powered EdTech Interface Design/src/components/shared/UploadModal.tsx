@@ -9,7 +9,11 @@ import { FileInput } from '../upload/FileInput';
 interface UploadModalProps {
   onClose: () => void;
   projectId?: string;
-  onSuccess?: (projectId: string) => void;
+  onSuccess?: (result: {
+    projectId: string;
+    firstMaterialId?: string;
+    totalFiles: number;
+  }) => void;
 }
 
 interface FileObject {
@@ -144,7 +148,11 @@ export function UploadModal({ onClose, projectId, onSuccess }: UploadModalProps)
       window.dispatchEvent(new CustomEvent('project-created', { detail: { projectId: result.project_id } }));
 
       if (onSuccess) {
-        onSuccess(result.project_id);
+        onSuccess({
+          projectId: result.project_id,
+          firstMaterialId: result.materials[0]?.id,
+          totalFiles: result.total_files,
+        });
       } else {
         navigate(`/dashboard/projects/${result.project_id}`);
       }
