@@ -697,6 +697,7 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
         if not transcript_candidates:
             raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
+        transcript_provider_failed = False
         for transcript in transcript_candidates:
             try:
                 logger.info(
@@ -722,7 +723,19 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
                 )
                 return full_text
 
-            except (XMLParseError, ValueError, YouTubeRequestFailed) as fetch_error:
+            except (XMLParseError, YouTubeRequestFailed) as fetch_error:
+                logger.warning(
+                    f"[YouTube:{video_id}] Failed to fetch transcript candidate: "
+                    f"{type(fetch_error).__name__}: {str(fetch_error)}",
+                    exc_info=True,
+                    extra=_log_extra(video_id=video_id, error_type=type(fetch_error).__name__),
+                )
+                # On some hosts YouTube transcript XML endpoints are flaky or blocked.
+                # Fall through to subtitle download fallback instead of hanging on more candidates.
+                transcript_provider_failed = True
+                break
+
+            except ValueError as fetch_error:
                 logger.warning(
                     f"[YouTube:{video_id}] Failed to fetch transcript candidate: "
                     f"{type(fetch_error).__name__}: {str(fetch_error)}",
@@ -739,6 +752,9 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
                 f"{len(subtitle_fallback_text)} characters from yt-dlp subtitles"
             )
             return subtitle_fallback_text
+
+        if transcript_provider_failed:
+            raise ValueError("Transcript provider failed and subtitle download fallback returned no usable text")
 
         raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
