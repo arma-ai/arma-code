@@ -562,17 +562,8 @@ def process_material_batch_task(
                         quiz_data,
                     )
 
-                # Step 6: Create embeddings for each material (for RAG)
-                logger.info(f"[process_material_batch] Creating embeddings for RAG")
-                for material in materials:
-                    if material.processing_status != ProcessingStatus.FAILED and material.full_text:
-                        try:
-                            logger.info(f"[process_material_batch] Creating embeddings for {material.id}")
-                            await processing_service._create_embeddings(material.id, material.full_text)
-                        except Exception as e:
-                            logger.error(f"[process_material_batch] Failed to create embeddings for {material.id}: {str(e)}")
-
-                # Update all materials to completed
+                # Mark materials completed before optional embedding generation so UI
+                # doesn't stay stuck in "processing" while background RAG prep runs.
                 for material in materials:
                     if material.processing_status != ProcessingStatus.FAILED:
                         await session.execute(
@@ -582,6 +573,18 @@ def process_material_batch_task(
                         )
 
                 await session.commit()
+
+                # Step 6: Create embeddings for each material (for RAG)
+                logger.info(f"[process_material_batch] Creating embeddings for RAG")
+                for material_id, full_text in extracted_materials:
+                    try:
+                        logger.info(f"[process_material_batch] Creating embeddings for {material_id}")
+                        await asyncio.wait_for(
+                            processing_service._create_embeddings(material_id, full_text),
+                            timeout=30,
+                        )
+                    except Exception as e:
+                        logger.error(f"[process_material_batch] Failed to create embeddings for {material_id}: {str(e)}")
                 
                 logger.info(f"[process_material_batch] Batch {batch_id} completed successfully")
                 

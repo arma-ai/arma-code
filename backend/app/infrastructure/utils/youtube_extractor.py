@@ -5,6 +5,7 @@ Handles transcript extraction via subtitles or Whisper API fallback,
 audio downloading with multi-strategy fallback, and audio processing.
 """
 import logging
+import multiprocessing.pool
 import os
 import re
 import shutil
@@ -179,6 +180,21 @@ def _download_subtitles_with_ytdlp(url: str, video_id: str, language: str = "en"
         return None
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _fetch_transcript_with_timeout(transcript, video_id: str, timeout_seconds: int = 8):
+    """Fetch transcript entries without letting the provider hang the worker indefinitely."""
+    pool = multiprocessing.pool.ThreadPool(processes=1)
+    async_result = pool.apply_async(transcript.fetch)
+    try:
+        return async_result.get(timeout=timeout_seconds)
+    except multiprocessing.pool.TimeoutError as exc:
+        raise TimeoutError(
+            f"[YouTube:{video_id}] Transcript fetch timed out after {timeout_seconds}s"
+        ) from exc
+    finally:
+        pool.terminate()
+        pool.join()
 
 # Initialize OpenAI client for Whisper
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -681,6 +697,16 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
         if not transcript_candidates:
             raise NoTranscriptFound(video_id, ['ru', 'en'], None)
 
+        logger.info(f"[YouTube:{video_id}] Strategy 1a: Attempting subtitle-only yt-dlp fast path...")
+        subtitle_fast_path = _download_subtitles_with_ytdlp(url, video_id, language=language)
+        if subtitle_fast_path and len(subtitle_fast_path) >= 10:
+            _set_cached_transcript(video_id, subtitle_fast_path)
+            logger.info(
+                f"[YouTube:{video_id}] ✓ Strategy 1a successful: "
+                f"{len(subtitle_fast_path)} characters from yt-dlp subtitles"
+            )
+            return subtitle_fast_path
+
         transcript_provider_failed = False
         for transcript in transcript_candidates:
             try:
@@ -688,7 +714,7 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
                     f"[YouTube:{video_id}] Trying transcript candidate "
                     f"{transcript.language_code} (generated={getattr(transcript, 'is_generated', False)})"
                 )
-                transcript_data = transcript.fetch()
+                transcript_data = _fetch_transcript_with_timeout(transcript, video_id)
 
                 if not transcript_data or len(transcript_data) == 0:
                     raise ValueError(f"[YouTube:{video_id}] Transcript data is empty")
@@ -707,7 +733,7 @@ def extract_text_from_youtube(url: str, language: str = 'ru') -> str:
                 )
                 return full_text
 
-            except (XMLParseError, YouTubeRequestFailed) as fetch_error:
+            except (TimeoutError, XMLParseError, YouTubeRequestFailed) as fetch_error:
                 logger.warning(
                     f"[YouTube:{video_id}] Failed to fetch transcript candidate: "
                     f"{type(fetch_error).__name__}: {str(fetch_error)}",
