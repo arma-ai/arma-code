@@ -961,6 +961,37 @@ from sqlalchemy import func
 from app.infrastructure.database.models.project import Project
 
 
+def _calculate_reading_time(word_count: int, wpm: int = 200) -> dict:
+    """
+    Calculate reading time based on word count.
+    
+    Args:
+        word_count: Number of words in the text
+        wpm: Words per minute (default 200 for average adult)
+    
+    Returns:
+        Dictionary with reading time in seconds and minutes
+    """
+    if word_count <= 0:
+        word_count = 500  # Default assumption
+    
+    minutes = word_count / wpm
+    seconds = int(minutes * 60)
+    
+    # Minimum reading time: 30 seconds (to prevent instant completion)
+    min_seconds = 30
+    # Early unlock threshold: 10-15 seconds before estimated time
+    early_unlock_seconds = max(min_seconds, seconds - 15)
+    
+    return {
+        "estimated_seconds": seconds,
+        "estimated_minutes": round(minutes, 1),
+        "min_seconds": min_seconds,
+        "early_unlock_seconds": early_unlock_seconds,
+        "word_count": word_count
+    }
+
+
 def _raise_tutor_unavailable(exc: Exception) -> None:
     logger.error("[TutorAPI] Tutor request failed: %s", exc, exc_info=True)
     detail = "AI tutor is temporarily unavailable"
@@ -1043,6 +1074,136 @@ async def send_tutor_message(
     )
     ai_message = result.scalar_one()
 
+    return ai_message
+
+
+# ============================================================================
+# SUMMARY WITH TIMER ENDPOINTS
+# ============================================================================
+
+from app.schemas.learning import LearningProgressResponse
+
+
+@router.get("/{material_id}/summary/reading-time")
+async def get_summary_reading_time(
+    material_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Get summary text with calculated reading time.
+    
+    Returns the summary text along with estimated reading time,
+    minimum required time, and early unlock threshold.
+    """
+    # Verify material ownership
+    result = await db.execute(
+        select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id,
+            Material.deleted_at.is_(None)
+        )
+    )
+    material = result.scalar_one_or_none()
+    
+    if not material:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Material not found"
+        )
+    
+    # Get summary text
+    summary_text = ""
+    
+    # First try material summary
+    if material.summary:
+        summary_text = material.summary.summary if material.summary.summary else ""
+    
+    # Fallback to project content if no material summary
+    if not summary_text and material.project_id:
+        project_content_result = await db.execute(
+            select(ProjectContent).where(ProjectContent.project_id == material.project_id)
+        )
+        project_content = project_content_result.scalar_one_or_none()
+        if project_content and project_content.summary:
+            summary_text = project_content.summary
+    
+    # Calculate word count
+    word_count = len(summary_text.split()) if summary_text else 0
+    
+    # Calculate reading time
+    reading_time = _calculate_reading_time(word_count)
+    
+    return {
+        "material_id": str(material_id),
+        "summary": summary_text,
+        "word_count": word_count,
+        "estimated_reading_time_seconds": reading_time["estimated_seconds"],
+        "estimated_reading_time_minutes": reading_time["estimated_minutes"],
+        "minimum_required_seconds": reading_time["min_seconds"],
+        "early_unlock_seconds": reading_time["early_unlock_seconds"]
+    }
+
+
+@router.post("/{material_id}/tutor/selection")
+async def send_tutor_message_with_selection(
+    material_id: UUID,
+    message_data: TutorMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Send a message to AI tutor with selected text context.
+    
+    This endpoint is specifically for text selection → AI chat integration.
+    The selected text is automatically included in the context.
+    """
+    # Verify material ownership
+    result = await db.execute(
+        select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id,
+            Material.deleted_at.is_(None)
+        )
+    )
+    material = result.scalar_one_or_none()
+    
+    if not material:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Material not found"
+        )
+    
+    if material.processing_status != ProcessingStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Material is still being processed"
+        )
+    
+    # Use TutorService to generate response with selection context
+    tutor_service = TutorService(db)
+    try:
+        # Set context to 'selection' to indicate this is from text selection
+        message_data.context = "selection"
+        
+        await tutor_service.send_message(
+            material_id=material_id,
+            user_message=message_data.message,
+            context=message_data.context
+        )
+    except Exception as exc:
+        _raise_tutor_unavailable(exc)
+    
+    # Get the last AI message from DB
+    result = await db.execute(
+        select(TutorMessage)
+        .where(TutorMessage.material_id == material_id)
+        .where(TutorMessage.role == "assistant")
+        .order_by(TutorMessage.created_at.desc())
+        .limit(1)
+    )
+    ai_message = result.scalar_one()
+    
     return ai_message
 
 

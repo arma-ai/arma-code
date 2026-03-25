@@ -13,6 +13,7 @@ import { LibraryView } from './components/dashboard/LibraryView';
 import { ProfileView } from './components/dashboard/ProfileView';
 import { ProjectDetailView as MaterialDetailView } from './components/dashboard/ProjectDetailView';
 import { ProjectDetailView as ProjectPageView } from './pages/ProjectDetailView';
+import { ProjectDetailViewAdaptive } from './pages/ProjectDetailViewAdaptive';
 import { FlashcardsView } from './components/dashboard/FlashcardsView';
 import { LanguagesView } from './components/dashboard/LanguagesView';
 import { ExamView } from './components/dashboard/ExamView';
@@ -120,7 +121,8 @@ function DashboardWrapper() {
           <Route path="exam" element={<ExamView />} />
           <Route path="profile" element={<ProfileView />} />
           <Route path="materials/:id" element={<MaterialDetailView />} />
-          <Route path="projects/:projectId" element={<ProjectPageView />} />
+          <Route path="projects/:projectId" element={<ProjectDetailViewAdaptive />} />
+          <Route path="adaptive/:projectId" element={<ProjectDetailViewAdaptive />} />
         </Routes>
       </DashboardLayout>
 

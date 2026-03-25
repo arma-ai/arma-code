@@ -8,10 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { toast } from 'sonner';
 import { AICore } from '../components/shared/AICore';
 import { Header } from '@/components/ui/header';
+import { UserProfileSetup, type UserProfileData } from '../components/onboarding/UserProfileSetup';
+import { userApi } from '../services/api';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const [step, setStep] = useState<'register' | 'profile'>('register');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -20,7 +23,7 @@ export const RegisterPage: React.FC = () => {
     full_name: '',
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
@@ -41,10 +44,12 @@ export const RegisterPage: React.FC = () => {
         password: formData.password,
         full_name: formData.full_name,
       });
-      toast.success('Регистрация успешна! Добро пожаловать!');
-      navigate('/dashboard');
+      
+      // Move to profile setup after successful registration
+      setStep('profile');
+      toast.success('Регистрация успешна! Теперь давайте настроим ваш профиль');
     } catch (error: any) {
-      const message = error.response?.data?.detail[0].msg || 'Ошибка регистрации. Попробуйте другой email.';
+      const message = error.response?.data?.detail[0]?.msg || 'Ошибка регистрации. Попробуйте другой email.';
       console.log(message);
       toast.error(message);
     } finally {
@@ -52,9 +57,39 @@ export const RegisterPage: React.FC = () => {
     }
   };
 
+  const handleProfileComplete = async (profileData: UserProfileData) => {
+    setIsLoading(true);
+    try {
+      await userApi.createProfile(profileData);
+      toast.success('Профиль успешно создан!');
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error creating profile:', error);
+      toast.error('Ошибка сохранения профиля, но вы можете заполнить его позже');
+      navigate('/dashboard');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSkipProfile = () => {
+    navigate('/dashboard');
+  };
+
+  // Show profile setup after successful registration
+  if (step === 'profile') {
+    return (
+      <UserProfileSetup 
+        onComplete={handleProfileComplete}
+        onSkip={handleSkipProfile}
+      />
+    );
+  }
+
+  // Show registration form
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0C0C0F' }}>
-      
+
       <Header />
 
       {/* Background AI Core */}
@@ -71,7 +106,7 @@ export const RegisterPage: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleRegisterSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="full_name" className="text-white/80">
                 Полное имя

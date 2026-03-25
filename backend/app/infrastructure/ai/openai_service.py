@@ -276,18 +276,26 @@ class OpenAIService:
             logger.error(f"[OpenAI] Error generating flashcards: {str(e)}")
             raise
 
-    async def generate_quiz(self, text: str, count: int = 10) -> List[Dict]:
+    async def generate_quiz(
+        self,
+        text: str,
+        count: int = 10,
+        user_profile: Optional[Dict] = None,
+        focus_areas: Optional[List[str]] = None,
+    ) -> List[Dict]:
         """
         Генерация quiz вопросов (multiple choice) с кэшированием и retry.
 
         Args:
             text: Исходный текст
             count: Количество вопросов
+            user_profile: Профиль пользователя для персонализации
+            focus_areas: Темы для фокуса (для remediation после failed quiz)
 
         Returns:
             List[Dict]: Вопросы с вариантами ответа
         """
-        cache_key = _cache_key("quiz", text, count=count)
+        cache_key = _cache_key("quiz", text, count=count, user_profile=user_profile, focus_areas=focus_areas)
         cached = await self._get_cached(cache_key)
         if cached:
             logger.info("[OpenAI] Quiz served from cache")
@@ -296,21 +304,15 @@ class OpenAIService:
         try:
             text_chunk = text[:50000]
 
+            # Build personalized system prompt
+            system_prompt = self._build_quiz_system_prompt(count, user_profile, focus_areas)
+
             response = await self._call_chat(
                 model=settings.LLM_MODEL,
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            "You are an expert at creating educational quiz questions that test understanding. "
-                            "Generate questions in JSON format with 'questions' array. "
-                            "Each question must have: question (text), option_a, option_b, option_c, option_d (all text), "
-                            "and correct_option (the FULL TEXT of the correct answer, copied exactly from one of the options). "
-                            f"Create exactly {count} questions. "
-                            "Mix difficulty levels: 30% easy, 50% medium, 20% hard. "
-                            "The questions and answers MUST be in the SAME LANGUAGE as the source text. "
-                            "Return only valid JSON, no additional text."
-                        ),
+                        "content": system_prompt,
                     },
                     {
                         "role": "user",
@@ -346,6 +348,72 @@ class OpenAIService:
         except Exception as e:
             logger.error(f"[OpenAI] Error generating quiz: {str(e)}")
             raise
+
+    def _build_quiz_system_prompt(
+        self,
+        count: int,
+        user_profile: Optional[Dict] = None,
+        focus_areas: Optional[List[str]] = None,
+    ) -> str:
+        """
+        Build personalized system prompt for quiz generation based on user profile and focus areas.
+        """
+        base_prompt = (
+            "You are an expert at creating educational quiz questions that test understanding. "
+            "Generate questions in JSON format with 'questions' array. "
+            "Each question must have: question (text), option_a, option_b, option_c, option_d (all text), "
+            "and correct_option (the FULL TEXT of the correct answer, copied exactly from one of the options). "
+            f"Create exactly {count} questions. "
+            "Mix difficulty levels: 30% easy, 50% medium, 20% hard. "
+            "The questions and answers MUST be in the SAME LANGUAGE as the source text. "
+            "Return only valid JSON, no additional text."
+        )
+
+        personalization_parts = [base_prompt]
+
+        # Add focus on weak areas if provided (remediation quiz)
+        if focus_areas:
+            focus_str = ", ".join(focus_areas)
+            personalization_parts.append(
+                f"IMPORTANT: Focus specifically on these topics that the student struggled with: {focus_str}. "
+                "Create questions that help reinforce understanding of these specific areas. "
+                "Make the questions slightly easier to build confidence."
+            )
+
+        if not user_profile:
+            return " ".join(personalization_parts)
+
+        # Add personalization based on education level
+        education_level = user_profile.get("education_level")
+        age = user_profile.get("age")
+        faculty = user_profile.get("faculty")
+
+        if education_level == "school" or (age and age < 18):
+            grade_level = user_profile.get("grade_level")
+            personalization_parts.append(
+                f"Adapt the language complexity for a {grade_level or 'middle'} grade student. "
+                "Use simpler vocabulary and straightforward question phrasing. "
+                "Avoid overly technical jargon."
+            )
+        elif education_level == "university":
+            university_year = user_profile.get("university_year")
+            personalization_parts.append(
+                f"Adapt for a {university_year or 'first'} year university student. "
+                "Use appropriate academic vocabulary and concepts. "
+            )
+            if faculty:
+                personalization_parts.append(
+                    f"Where possible, frame questions in the context of {faculty} field. "
+                    f"Use examples that would resonate with a {faculty} student."
+                )
+        elif education_level == "professional":
+            personalization_parts.append(
+                "Adapt for a professional learner. "
+                "Focus on practical applications and real-world scenarios. "
+                "Use industry-standard terminology."
+            )
+
+        return " ".join(personalization_parts)
 
     async def create_embedding(self, text: str) -> List[float]:
         """
