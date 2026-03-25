@@ -155,7 +155,7 @@ export function useMaterialUpload(refetch?: () => void, materialId?: string | nu
     uploadingRef.current = false;
     // Refresh data after modal closes
     if (refetch) {
-      refetch(); // Don't show loading animation
+      refetch(false); // Don't show loading animation
     }
   }, [refetch]);
 

@@ -13,4 +13,3 @@ def import_models():
     from app.infrastructure.database.models import quiz  # noqa
     from app.infrastructure.database.models import quiz_attempt  # noqa
     from app.infrastructure.database.models import subscription  # noqa
-    from app.infrastructure.database.models import learning  # noqa

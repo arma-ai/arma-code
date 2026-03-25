@@ -87,11 +87,6 @@ class Material(Base):
     chunks = relationship("MaterialChunk", back_populates="material", cascade="all, delete-orphan")
     embeddings = relationship("MaterialEmbedding", back_populates="material", cascade="all, delete-orphan")
     tutor_messages = relationship("TutorMessage", back_populates="material", cascade="all, delete-orphan")
-    
-    # Adaptive Learning System
-    learning_progress = relationship("LearningProgress", back_populates=None, uselist=False, cascade="all, delete-orphan")
-    presentations = relationship("Presentation", back_populates=None, cascade="all, delete-orphan")
-    podcasts = relationship("Podcast", back_populates=None, cascade="all, delete-orphan")
 
     # Indexes
     __table_args__ = (

@@ -226,7 +226,7 @@ export const materialsApi = {
 
   getProcessingStatus: async (id: string): Promise<{
     material_id: string;
-    status: 'queued' | 'processing' | 'completed' | 'failed';
+    status: string;
     progress: number;
     error?: string | null;
     stage: number;
@@ -485,111 +485,6 @@ export const projectsApi = {
     return response.data;
   },
 
-};
-
-// ============================================================================
-// USER PROFILE API
-// ============================================================================
-export interface UserProfileData {
-  age: number;
-  education_level: 'school' | 'university' | 'professional';
-  grade_level?: number;
-  school_interests?: string[];
-  university_year?: number;
-  faculty?: string;
-  major?: string;
-  occupation?: string;
-  work_field?: string;
-  learning_style?: 'visual' | 'auditory' | 'reading_writing' | 'kinesthetic';
-  interests?: string[];
-}
-
-export interface LearningProgressData {
-  id: string;
-  user_id: string;
-  material_id: string;
-  current_stage: string;
-  summary_completed: boolean;
-  summary_read_time_seconds: number;
-  summary_word_count: number;
-  flashcards_completed: boolean;
-  flashcards_viewed_count: number;
-  quiz_attempts_count: number;
-  best_quiz_score: number;
-  quiz_passed: boolean;
-  quiz_weak_areas?: string[];
-  presentation_completed: boolean;
-  presentation_generated: boolean;
-  podcast_completed: boolean;
-  podcast_generated: boolean;
-  mastery_achieved: boolean;
-  completed_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export const userApi = {
-  createProfile: async (data: UserProfileData): Promise<UserProfileData> => {
-    const response = await apiClient.post<UserProfileData>('/users/profile', data);
-    return response.data;
-  },
-
-  getProfile: async (): Promise<UserProfileData> => {
-    const response = await apiClient.get<UserProfileData>('/users/profile');
-    return response.data;
-  },
-
-  updateProfile: async (data: Partial<UserProfileData>): Promise<UserProfileData> => {
-    const response = await apiClient.patch<UserProfileData>('/users/profile', data);
-    return response.data;
-  },
-
-  getLearningProgress: async (materialId: string): Promise<LearningProgressData> => {
-    const response = await apiClient.get<LearningProgressData>(`/users/materials/${materialId}/learning-progress`);
-    return response.data;
-  },
-
-  completeStage: async (materialId: string, stage: string, data?: { read_time_seconds?: number; viewed_count?: number }): Promise<any> => {
-    const response = await apiClient.post(`/users/materials/${materialId}/learning-progress/stage/${stage}/complete`, data || {});
-    return response.data;
-  },
-
-  submitQuizResult: async (materialId: string, data: {
-    score_percentage: number;
-    questions_correct: number;
-    questions_total: number;
-    weak_areas?: string[];
-    time_spent_seconds: number;
-  }): Promise<{
-    score_percentage: number;
-    passed: boolean;
-    questions_correct: number;
-    questions_total: number;
-    weak_areas?: string[];
-    next_stage: string;
-    mastery_achieved: boolean;
-  }> => {
-    const response = await apiClient.post(`/users/materials/${materialId}/learning-progress/quiz-result`, data);
-    return response.data;
-  },
-
-  getPresentation: async (materialId: string): Promise<any> => {
-    const response = await apiClient.get(`/users/materials/${materialId}/presentation`);
-    return response.data;
-  },
-
-  markPresentationViewed: async (materialId: string): Promise<void> => {
-    await apiClient.post(`/users/materials/${materialId}/presentation/view`);
-  },
-
-  getPodcast: async (materialId: string): Promise<any> => {
-    const response = await apiClient.get(`/users/materials/${materialId}/podcast`);
-    return response.data;
-  },
-
-  updatePodcastProgress: async (materialId: string, data: { progress_seconds: number; completed: boolean }): Promise<void> => {
-    await apiClient.post(`/users/materials/${materialId}/podcast/progress`, data);
-  },
 };
 
 // ============================================================================
