@@ -519,6 +519,46 @@ export const billingApi = {
 };
 
 // ============================================================================
+// USER PROFILE API
+// ============================================================================
+export const userProfileApi = {
+  get: async (): Promise<{ user_profile: UserProfileWithLearningPaths }> => {
+    const response = await apiClient.get('/profile');
+    return response.data;
+  },
+
+  create: async (data: CreateUserProfileRequest): Promise<UserProfile> => {
+    const response = await apiClient.post('/profile', data);
+    return response.data;
+  },
+
+  update: async (data: UpdateUserProfileRequest): Promise<UserProfile> => {
+    const response = await apiClient.put('/profile', data);
+    return response.data;
+  },
+
+  getLearningPath: async (materialId: string): Promise<LearningPath> => {
+    const response = await apiClient.get(`/materials/${materialId}/learning-path`);
+    return response.data;
+  },
+
+  completeStage: async (materialId: string, stage: string): Promise<{ message: string }> => {
+    const response = await apiClient.post(`/materials/${materialId}/learning-path/stage/complete`, { stage });
+    return response.data;
+  },
+
+  updateFlashcardsProgress: async (materialId: string, progress: FlashcardsProgressRequest): Promise<LearningPath> => {
+    const response = await apiClient.post(`/materials/${materialId}/learning-path/flashcards-progress`, progress);
+    return response.data;
+  },
+
+  updateQuizProgress: async (materialId: string, progress: QuizProgressRequest): Promise<LearningPath> => {
+    const response = await apiClient.post(`/materials/${materialId}/learning-path/quiz-progress`, progress);
+    return response.data;
+  },
+};
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 export const setAuthToken = (token: string) => {

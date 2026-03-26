@@ -11,6 +11,7 @@ export interface FlashcardsTabProps {
     flashcards: FlashcardItem[];
     loading: boolean;
     viewMode?: 'all' | 'single';
+    onFinishReview?: (knownCount: number, totalCount: number) => void;
 }
 
 const PREVIEW_COUNT = 3;
@@ -64,7 +65,12 @@ export function FlashcardsTab({ material, flashcards, loading, viewMode = 'singl
     // Review Session Complete
     if (reviewStarted && knownCards.length + learningCards.length === flashcards.length) {
         const percentage = Math.round((knownCards.length / flashcards.length) * 100);
-        
+
+        // Notify parent about completion
+        React.useEffect(() => {
+            onFinishReview?.(knownCards.length, flashcards.length);
+        }, [knownCards.length, flashcards.length, onFinishReview]);
+
         return (
             <div className="h-full overflow-y-auto">
                 <div className="max-w-2xl mx-auto p-8">

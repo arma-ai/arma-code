@@ -8,10 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { toast } from 'sonner';
 import { AICore } from '../components/shared/AICore';
 import { Header } from '@/components/ui/header';
+import { StudentProfileForm } from '../components/shared/StudentProfileForm';
+import { userProfileApi } from '../services/api';
+import type { CreateUserProfileRequest } from '../types/api';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, user } = useAuth();
+  const [step, setStep] = useState<'register' | 'profile'>('register');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -41,8 +45,9 @@ export const RegisterPage: React.FC = () => {
         password: formData.password,
         full_name: formData.full_name,
       });
-      toast.success('Регистрация успешна! Добро пожаловать!');
-      navigate('/dashboard');
+      // Move to profile setup step
+      setStep('profile');
+      toast.success('Регистрация успешна! Теперь настройте профиль');
     } catch (error: any) {
       const message = error.response?.data?.detail[0].msg || 'Ошибка регистрации. Попробуйте другой email.';
       console.log(message);
@@ -52,9 +57,27 @@ export const RegisterPage: React.FC = () => {
     }
   };
 
+  const handleProfileComplete = async (profileData: CreateUserProfileRequest) => {
+    setIsLoading(true);
+    try {
+      await userProfileApi.create(profileData);
+      toast.success('Профиль создан!');
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast.error('Ошибка сохранения профиля: ' + (error.response?.data?.detail || 'Попробуйте позже'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Show profile form after registration
+  if (step === 'profile') {
+    return <StudentProfileForm onComplete={handleProfileComplete} isLoading={isLoading} />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0C0C0F' }}>
-      
+
       <Header />
 
       {/* Background AI Core */}

@@ -239,3 +239,104 @@ export interface SearchResponse {
   pending_types: SearchResultType[];
   cached: boolean;
 }
+
+// ============================================================================
+// USER PROFILE & LEARNING PATH TYPES
+// ============================================================================
+
+export type UserType = 'school' | 'university' | 'adult';
+export type LearningStage = 'locked' | 'available' | 'in_progress' | 'completed';
+export type DifficultyPreference = 'easy' | 'medium' | 'hard';
+
+export interface UserProfile {
+  id: string;
+  user_id: string;
+  user_type: UserType;
+  age?: number;
+  school_grade?: number;  // 1-11
+  university_course?: number;  // 1-6
+  university_faculty?: string;
+  profession?: string;
+  learning_goal?: string;
+  preferred_language: string;
+  difficulty_preference: DifficultyPreference;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningPath {
+  id: string;
+  user_profile_id: string;
+  material_id: string;
+  current_stage: string;
+
+  // Stage statuses
+  summary_stage: LearningStage;
+  summary_completed_at?: string;
+
+  flashcards_stage: LearningStage;
+  flashcards_started_at?: string;
+  flashcards_completed_at?: string;
+
+  quiz_stage: LearningStage;
+  quiz_attempts_count: number;
+  best_quiz_score: number;
+  last_quiz_score: number;
+  last_quiz_attempt_at?: string;
+  quiz_completed_at?: string;
+
+  // Remedial content
+  remedial_presentation_unlocked: boolean;
+  remedial_podcast_unlocked: boolean;
+
+  // Completion
+  is_completed: boolean;
+  completed_at?: string;
+
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+
+  // Helper: list of unlocked stages
+  unlocked_stages: string[];
+}
+
+export interface UserProfileWithLearningPaths extends UserProfile {
+  learning_paths: LearningPath[];
+}
+
+// Request types
+export interface CreateUserProfileRequest {
+  user_type: UserType;
+  age?: number;
+  school_grade?: number;
+  university_course?: number;
+  university_faculty?: string;
+  profession?: string;
+  learning_goal?: string;
+  preferred_language?: string;
+  difficulty_preference?: DifficultyPreference;
+}
+
+export interface UpdateUserProfileRequest {
+  age?: number;
+  learning_goal?: string;
+  preferred_language?: string;
+  difficulty_preference?: string;
+}
+
+export interface StageCompleteRequest {
+  stage: 'summary' | 'flashcards' | 'quiz' | 'remedial_presentation' | 'remedial_podcast';
+}
+
+export interface FlashcardsProgressRequest {
+  known_count: number;
+  learning_count: number;
+  total_count: number;
+}
+
+export interface QuizProgressRequest {
+  score: number;  // 0-100
+  total_questions: number;
+  correct_answers: number;
+}

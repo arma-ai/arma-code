@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Youtube, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, Folder, BookOpen, BrainCircuit, ClipboardList, Trash2, MessageSquare, Plus } from 'lucide-react';
+import { ArrowLeft, FileText, Youtube, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, Folder, BookOpen, BrainCircuit, ClipboardList, Trash2, MessageSquare, Plus, PlayCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useProject, useProjectContent, useMaterialContent, useTutorChat } from '../hooks/useApi';
 import { toast } from 'sonner';
-import { projectsApi, materialsApi } from '../services/api';
+import { projectsApi, materialsApi, userProfileApi } from '../services/api';
 import { FlashcardsTab } from '../components/dashboard/tabs/FlashcardsTab';
 import { QuizTab } from '../components/dashboard/tabs/QuizTab';
 import { ChatTab } from '../components/dashboard/tabs/ChatTab';
 import { ProcessingModal, ProgressiveReveal, OnboardingTour, DashboardHero } from '../components/dashboard';
+import { LearningRoadmap } from '../components/shared/LearningRoadmap';
+import { StageGate } from '../components/shared/StageGate';
 import { useMaterialUpload } from '../hooks/useMaterialUpload';
+import type { LearningPath } from '../types/api';
 
 export function ProjectDetailView() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -27,6 +30,8 @@ export function ProjectDetailView() {
     viewMode === 'all' ? projectId : null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [learningPath, setLearningPath] = useState<LearningPath | null>(null);
+  const [loadingLearningPath, setLoadingLearningPath] = useState(false);
 
   // Upload flow with processing modal
   const {
@@ -71,6 +76,93 @@ export function ProjectDetailView() {
       navigate(`/dashboard/materials/${project.materials[0].id}`, { replace: true });
     }
   }, [project, loading, navigate]);
+
+  // Load learning path for the first material (or selected material)
+  useEffect(() => {
+    const loadLearningPath = async () => {
+      if (!project?.materials?.length) return;
+      
+      const materialId = selectedMaterialId || project.materials[0]?.id;
+      if (!materialId) return;
+
+      setLoadingLearningPath(true);
+      try {
+        const path = await userProfileApi.getLearningPath(materialId);
+        setLearningPath(path);
+      } catch (error: any) {
+        console.error('Failed to load learning path:', error);
+      } finally {
+        setLoadingLearningPath(false);
+      }
+    };
+
+    loadLearningPath();
+  }, [project?.materials, selectedMaterialId]);
+
+  // Handle stage completion
+  const handleStageComplete = async (stage: string) => {
+    if (!project?.materials?.length) return;
+    
+    const materialId = selectedMaterialId || project.materials[0]?.id;
+    if (!materialId) return;
+
+    try {
+      await userProfileApi.completeStage(materialId, stage);
+      const updatedPath = await userProfileApi.getLearningPath(materialId);
+      setLearningPath(updatedPath);
+      toast.success(`Этап "${stage}" завершён!`);
+    } catch (error: any) {
+      toast.error('Ошибка: ' + (error.response?.data?.detail || 'Не удалось завершить этап'));
+    }
+  };
+
+  // Handle flashcards progress
+  const handleFlashcardsProgress = async (knownCount: number, totalCount: number) => {
+    if (!project?.materials?.length) return;
+    
+    const materialId = selectedMaterialId || project.materials[0]?.id;
+    if (!materialId) return;
+
+    try {
+      const updatedPath = await userProfileApi.updateFlashcardsProgress(materialId, {
+        known_count: knownCount,
+        learning_count: totalCount - knownCount,
+        total_count: totalCount,
+      });
+      setLearningPath(updatedPath);
+      
+      if (updatedPath.quiz_stage !== 'locked') {
+        toast.success('Тест открыт!');
+      }
+    } catch (error: any) {
+      console.error('Failed to update flashcards progress:', error);
+    }
+  };
+
+  // Handle quiz completion
+  const handleQuizComplete = async (score: number, totalQuestions: number, correctAnswers: number) => {
+    if (!project?.materials?.length) return;
+    
+    const materialId = selectedMaterialId || project.materials[0]?.id;
+    if (!materialId) return;
+
+    try {
+      const updatedPath = await userProfileApi.updateQuizProgress(materialId, {
+        score,
+        total_questions: totalQuestions,
+        correct_answers: correctAnswers,
+      });
+      setLearningPath(updatedPath);
+
+      if (updatedPath.is_completed) {
+        toast.success('🎉 Материал освоен!');
+      } else if (score < 70) {
+        toast.info('Доступны материалы для повторения');
+      }
+    } catch (error: any) {
+      console.error('Failed to update quiz progress:', error);
+    }
+  };
 
   // Upload handlers
   const handleUploadPDF = async () => {
@@ -515,21 +607,51 @@ export function ProjectDetailView() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-4xl space-y-6"
+                className="max-w-6xl space-y-6"
               >
+                {/* Learning Roadmap */}
+                {learningPath && (
+                  <div className="mb-8">
+                    <LearningRoadmap
+                      learningPath={learningPath}
+                      onStageClick={(stage) => {
+                        if (stage === 'flashcards') setActiveTab('flashcards');
+                        if (stage === 'quiz') setActiveTab('quiz');
+                      }}
+                    />
+                  </div>
+                )}
+
                 {contentLoading ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   </div>
                 ) : viewMode === 'all' && content?.summary ? (
                   <>
-                    {/* Summary Section */}
+                    {/* Summary Section with Complete Button */}
                     <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <BookOpen className="w-4 h-4 text-primary" />
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <BookOpen className="w-4 h-4 text-primary" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-white">Summary (All Materials)</h2>
                         </div>
-                        <h2 className="text-xl font-semibold text-white">Summary (All Materials)</h2>
+                        {learningPath?.summary_stage !== 'completed' && (
+                          <button
+                            onClick={() => handleStageComplete('summary')}
+                            className="px-4 py-2 bg-primary text-black rounded-lg font-bold text-sm hover:bg-primary/90 transition-all flex items-center gap-2"
+                          >
+                            <CheckCircle size={16} />
+                            Я прочитал
+                          </button>
+                        )}
+                        {learningPath?.summary_stage === 'completed' && (
+                          <span className="px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1">
+                            <CheckCircle size={12} />
+                            Прочитано
+                          </span>
+                        )}
                       </div>
                       <div className="markdown-content text-white/70 leading-relaxed">
                         <ReactMarkdown
@@ -749,61 +871,73 @@ export function ProjectDetailView() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                {(materialLoading || contentLoading) ? (
-                  <div className="flex items-center justify-center py-20 col-span-full">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                  </div>
-                ) : viewMode === 'all' && content?.flashcards && content.flashcards.length > 0 ? (
-                  <FlashcardsTab
-                    material={{
-                      id: 'all',
-                      title: 'All Materials',
-                      type: 'mixed',
-                      processing_status: 'completed',
-                      processing_progress: 100,
-                      created_at: new Date().toISOString(),
-                      file_path: '',
-                      source_url: '',
-                      flashcards_count: content.flashcards.length,
-                      quiz_count: content?.quiz?.length || 0,
-                      summary_status: content?.summary ? 'completed' : 'pending',
-                      podcast_status: 'pending',
-                      presentation_status: 'pending',
-                    } as any}
-                    flashcards={content.flashcards}
-                    loading={contentLoading}
-                    viewMode="all"
-                  />
-                ) : viewMode === 'single' && selectedMaterialId ? (
-                  materialLoading ? (
-                    <div className="flex items-center justify-center py-20">
+                {/* Stage Gate for Flashcards */}
+                <StageGate
+                  stageStatus={learningPath?.flashcards_stage || 'locked'}
+                  lockedMessage="Прочитайте конспект, чтобы открыть карточки"
+                >
+                  {(materialLoading || contentLoading) ? (
+                    <div className="flex items-center justify-center py-20 col-span-full">
                       <Loader2 className="w-8 h-8 text-primary animate-spin" />
                     </div>
-                  ) : materialContent?.flashcards && materialContent.flashcards.length > 0 ? (
-                    (() => {
-                      const material = project?.materials.find(m => m.id === selectedMaterialId);
-                      if (!material) return null;
-                      return (
-                        <FlashcardsTab
-                          material={material as any}
-                          flashcards={materialContent.flashcards}
-                          loading={false}
-                          viewMode="single"
-                        />
-                      );
-                    })()
+                  ) : viewMode === 'all' && content?.flashcards && content.flashcards.length > 0 ? (
+                    <FlashcardsTab
+                      material={{
+                        id: 'all',
+                        title: 'All Materials',
+                        type: 'mixed',
+                        processing_status: 'completed',
+                        processing_progress: 100,
+                        created_at: new Date().toISOString(),
+                        file_path: '',
+                        source_url: '',
+                        flashcards_count: content.flashcards.length,
+                        quiz_count: content?.quiz?.length || 0,
+                        summary_status: content?.summary ? 'completed' : 'pending',
+                        podcast_status: 'pending',
+                        presentation_status: 'pending',
+                      } as any}
+                      flashcards={content.flashcards}
+                      loading={contentLoading}
+                      viewMode="all"
+                      onFinishReview={(knownCount, totalCount) => {
+                        handleFlashcardsProgress(knownCount, totalCount);
+                      }}
+                    />
+                  ) : viewMode === 'single' && selectedMaterialId ? (
+                    materialLoading ? (
+                      <div className="flex items-center justify-center py-20">
+                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      </div>
+                    ) : materialContent?.flashcards && materialContent.flashcards.length > 0 ? (
+                      (() => {
+                        const material = project?.materials.find(m => m.id === selectedMaterialId);
+                        if (!material) return null;
+                        return (
+                          <FlashcardsTab
+                            material={material as any}
+                            flashcards={materialContent.flashcards}
+                            loading={false}
+                            viewMode="single"
+                            onFinishReview={(knownCount, totalCount) => {
+                              handleFlashcardsProgress(knownCount, totalCount);
+                            }}
+                          />
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center py-20 col-span-full border border-dashed border-white/5 rounded-2xl">
+                        <BrainCircuit className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                        <p className="text-white/40">No flashcards available for this material</p>
+                      </div>
+                    )
                   ) : (
                     <div className="text-center py-20 col-span-full border border-dashed border-white/5 rounded-2xl">
                       <BrainCircuit className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <p className="text-white/40">No flashcards available for this material</p>
+                      <p className="text-white/40">Flashcards are being generated...</p>
                     </div>
-                  )
-                ) : (
-                  <div className="text-center py-20 col-span-full border border-dashed border-white/5 rounded-2xl">
-                    <BrainCircuit className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                    <p className="text-white/40">Flashcards are being generated...</p>
-                  </div>
-                )}
+                  )}
+                </StageGate>
               </motion.div>
             )}
 
@@ -814,63 +948,75 @@ export function ProjectDetailView() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                {(contentLoading || materialLoading) ? (
-                  <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                  </div>
-                ) : viewMode === 'single' && selectedMaterialId ? (
-                  // Single Material mode
-                  materialLoading ? (
+                {/* Stage Gate for Quiz */}
+                <StageGate
+                  stageStatus={learningPath?.quiz_stage || 'locked'}
+                  lockedMessage="Пройдите карточки, чтобы открыть тест"
+                >
+                  {(contentLoading || materialLoading) ? (
                     <div className="flex items-center justify-center py-20">
                       <Loader2 className="w-8 h-8 text-primary animate-spin" />
                     </div>
-                  ) : materialContent?.quiz && materialContent.quiz.length > 0 ? (
-                    (() => {
-                      const material = project?.materials.find(m => m.id === selectedMaterialId);
-                      if (!material) return null;
-                      return (
-                        <QuizTab
-                          material={material as any}
-                          questions={materialContent.quiz}
-                          loading={false}
-                          viewMode="single"
-                        />
-                      );
-                    })()
+                  ) : viewMode === 'single' && selectedMaterialId ? (
+                    // Single Material mode
+                    materialLoading ? (
+                      <div className="flex items-center justify-center py-20">
+                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      </div>
+                    ) : materialContent?.quiz && materialContent.quiz.length > 0 ? (
+                      (() => {
+                        const material = project?.materials.find(m => m.id === selectedMaterialId);
+                        if (!material) return null;
+                        return (
+                          <QuizTab
+                            material={material as any}
+                            questions={materialContent.quiz}
+                            loading={false}
+                            viewMode="single"
+                            onQuizComplete={(score, total, correct) => {
+                              handleQuizComplete(score, total, correct);
+                            }}
+                          />
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
+                        <ClipboardList className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                        <p className="text-white/40">No quiz available for this material</p>
+                      </div>
+                    )
+                  ) : viewMode === 'all' && content?.quiz && content.quiz.length > 0 ? (
+                    // All Materials mode - use new QuizTab with combined data
+                    <QuizTab
+                      material={{
+                        id: 'all',
+                        title: 'All Materials',
+                        type: 'mixed',
+                        processing_status: 'completed',
+                        processing_progress: 100,
+                        created_at: new Date().toISOString(),
+                        file_path: '',
+                        source_url: '',
+                        flashcards_count: content?.flashcards?.length || 0,
+                        quiz_count: content?.quiz?.length || 0,
+                        summary_status: content?.summary ? 'completed' : 'pending',
+                        podcast_status: 'pending',
+                        presentation_status: 'pending',
+                      } as any}
+                      questions={content.quiz || []}
+                      loading={contentLoading}
+                      viewMode="all"
+                      onQuizComplete={(score, total, correct) => {
+                        handleQuizComplete(score, total, correct);
+                      }}
+                    />
                   ) : (
                     <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
                       <ClipboardList className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <p className="text-white/40">No quiz available for this material</p>
+                      <p className="text-white/40">Quiz is being generated...</p>
                     </div>
-                  )
-                ) : viewMode === 'all' && content?.quiz && content.quiz.length > 0 ? (
-                  // All Materials mode - use new QuizTab with combined data
-                  <QuizTab
-                    material={{
-                      id: 'all',
-                      title: 'All Materials',
-                      type: 'mixed',
-                      processing_status: 'completed',
-                      processing_progress: 100,
-                      created_at: new Date().toISOString(),
-                      file_path: '',
-                      source_url: '',
-                      flashcards_count: content?.flashcards?.length || 0,
-                      quiz_count: content?.quiz?.length || 0,
-                      summary_status: content?.summary ? 'completed' : 'pending',
-                      podcast_status: 'pending',
-                      presentation_status: 'pending',
-                    } as any}
-                    questions={content.quiz || []}
-                    loading={contentLoading}
-                    viewMode="all"
-                  />
-                ) : (
-                  <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
-                    <ClipboardList className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                    <p className="text-white/40">Quiz is being generated...</p>
-                  </div>
-                )}
+                  )}
+                </StageGate>
               </motion.div>
             )}
           </>

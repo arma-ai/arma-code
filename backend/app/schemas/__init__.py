@@ -58,6 +58,21 @@ from app.schemas.quiz import (
     QuizAttemptResponse,
 )
 
+from app.schemas.user_profile import (
+    UserType,
+    LearningStage,
+    UserProfileBase,
+    UserProfileCreate,
+    UserProfileUpdate,
+    UserProfileResponse,
+    LearningPathResponse,
+    LearningPathCreate,
+    StageCompleteRequest,
+    FlashcardsProgressRequest,
+    QuizProgressRequest,
+    UserProfileWithLearningPathsResponse,
+)
+
 __all__ = [
     # Common
     "BaseSchema",
@@ -105,4 +120,17 @@ __all__ = [
     "QuizAnswerResponse",
     "QuizAttemptRequest",
     "QuizAttemptResponse",
+    # User Profile
+    "UserType",
+    "LearningStage",
+    "UserProfileBase",
+    "UserProfileCreate",
+    "UserProfileUpdate",
+    "UserProfileResponse",
+    "LearningPathResponse",
+    "LearningPathCreate",
+    "StageCompleteRequest",
+    "FlashcardsProgressRequest",
+    "QuizProgressRequest",
+    "UserProfileWithLearningPathsResponse",
 ]

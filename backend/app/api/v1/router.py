@@ -3,7 +3,7 @@ API v1 Router - aggregates all endpoint routers
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, materials, quiz, flashcards, search, projects, billing, webhooks
+from app.api.v1.endpoints import auth, materials, quiz, flashcards, search, projects, billing, webhooks, user_profile
 
 
 api_router = APIRouter()
@@ -17,3 +17,4 @@ api_router.include_router(search.router, prefix="/search", tags=["Search"])  # H
 api_router.include_router(projects.router, tags=["Projects"])  # No prefix - already has /projects in the router
 api_router.include_router(billing.router, prefix="/billing", tags=["Billing"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
+api_router.include_router(user_profile.router, tags=["User Profile"])

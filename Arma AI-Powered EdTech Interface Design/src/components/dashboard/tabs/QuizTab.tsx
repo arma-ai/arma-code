@@ -11,6 +11,7 @@ export interface QuizTabProps {
     questions: QuizQuestion[];
     loading: boolean;
     viewMode?: 'all' | 'single';
+    onQuizComplete?: (score: number, totalQuestions: number, correctAnswers: number) => void;
 }
 
 const PREVIEW_COUNT = 3;
@@ -111,6 +112,11 @@ export function QuizTab({ material, questions, loading, viewMode = 'single' }: Q
         const score = calculateScore();
         const percentage = Math.round((score / questions.length) * 100);
         const isPassing = percentage >= 70;
+
+        // Notify parent about quiz completion
+        React.useEffect(() => {
+            onQuizComplete?.(percentage, questions.length, score);
+        }, [percentage, questions.length, score, onQuizComplete]);
 
         return (
             <div className="h-full overflow-y-auto">

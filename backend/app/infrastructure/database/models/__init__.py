@@ -26,6 +26,12 @@ from app.infrastructure.database.models.subscription import (
     PlanTier,
     SubscriptionStatus,
 )
+from app.infrastructure.database.models.user_profile import (
+    UserProfile,
+    LearningPath,
+    UserType,
+    LearningStage,
+)
 
 __all__ = [
     "User",
@@ -49,4 +55,8 @@ __all__ = [
     "PlanLimit",
     "PlanTier",
     "SubscriptionStatus",
+    "UserProfile",
+    "LearningPath",
+    "UserType",
+    "LearningStage",
 ]
