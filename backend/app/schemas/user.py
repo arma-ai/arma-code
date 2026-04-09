@@ -161,3 +161,134 @@ class ChangePasswordRequest(BaseModel):
             }
         }
     )
+
+
+class VerificationCodeRequest(BaseModel):
+    """Schema for verifying email with code."""
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=6)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "email": "user@example.com",
+                "code": "123456"
+            }
+        }
+    )
+
+
+class ResendCodeRequest(BaseModel):
+    """Schema for resending verification code."""
+    email: EmailStr
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "email": "user@example.com"
+            }
+        }
+    )
+
+
+class VerificationResponse(BaseModel):
+    """Response after verification."""
+    access_token: str
+    token_type: str = "bearer"
+    message: str = "Email verified successfully"
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer",
+                "message": "Email verified successfully"
+            }
+        }
+    )
+
+
+class ChangeEmailRequest(BaseModel):
+    """Request to change email (sends code to new email)."""
+    new_email: EmailStr
+    current_password: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "new_email": "newemail@example.com",
+                "current_password": "CurrentPassword1"
+            }
+        }
+    )
+
+
+class VerifyNewEmailRequest(BaseModel):
+    """Verify new email with code."""
+    code: str = Field(..., min_length=6, max_length=6)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "code": "123456"
+            }
+        }
+    )
+
+
+class ChangePasswordWithCodeRequest(BaseModel):
+    """Change password with email verification code."""
+    new_password: str = Field(..., min_length=8, max_length=100)
+    verification_code: str = Field(..., min_length=6, max_length=6)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "new_password": "NewStrongPassword1",
+                "verification_code": "123456"
+            }
+        }
+    )
+
+
+class ReverificationRequired(BaseModel):
+    """Response when re-verification is required."""
+    requires_reverification: bool = True
+    message: str = "Please verify your email again to continue"
+    email: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "requires_reverification": True,
+                "message": "Please verify your email again to continue",
+                "email": "user@example.com"
+            }
+        }
+    )
+
+
+class DeleteAccountRequest(BaseModel):
+    """Request to delete account with password and verification code."""
+    current_password: str
+    verification_code: str = Field(..., min_length=6, max_length=6)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "current_password": "CurrentPassword1",
+                "verification_code": "123456"
+            }
+        }
+    )

@@ -98,6 +98,52 @@ export const authApi = {
   changePassword: async (data: { current_password: string; new_password: string }): Promise<void> => {
     await apiClient.post('/auth/me/change-password', data);
   },
+
+  verifyEmail: async (data: { email: string; code: string }): Promise<{ access_token: string; token_type: string; message: string }> => {
+    const response = await apiClient.post('/auth/verify-email', data);
+    return response.data;
+  },
+
+  resendCode: async (email: string): Promise<{ message: string }> => {
+    const response = await apiClient.post('/auth/resend-code', { email });
+    return response.data;
+  },
+
+  requestEmailChange: async (newEmail: string, currentPassword: string): Promise<{ message: string }> => {
+    const response = await apiClient.post('/auth/me/change-email', { new_email: newEmail, current_password: currentPassword });
+    return response.data;
+  },
+
+  requestPasswordChange: async (): Promise<{ message: string }> => {
+    const response = await apiClient.post('/auth/me/request-password-change');
+    return response.data;
+  },
+
+  verifyNewEmail: async (code: string): Promise<User> => {
+    const response = await apiClient.post('/auth/me/verify-new-email', { code });
+    return response.data;
+  },
+
+  changePasswordWithCode: async (newPassword: string, code: string): Promise<{ message: string }> => {
+    const response = await apiClient.post('/auth/me/change-password-with-code', {
+      new_password: newPassword,
+      verification_code: code,
+    });
+    return response.data;
+  },
+
+  requestAccountDeletion: async (): Promise<{ message: string }> => {
+    const response = await apiClient.post('/auth/me/request-account-deletion');
+    return response.data;
+  },
+
+  deleteAccount: async (currentPassword: string, code: string): Promise<{ message: string }> => {
+    const response = await apiClient.post('/auth/me/delete-account', {
+      current_password: currentPassword,
+      verification_code: code,
+    });
+    return response.data;
+  },
 };
 
 // ============================================================================

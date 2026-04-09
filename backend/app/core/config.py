@@ -95,6 +95,17 @@ class Settings(BaseSettings):
     # Tavily (Web Search)
     TAVILY_API_KEY: str = ""
 
+    # Email (SMTP)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "Arma EdTech"
+    SMTP_USE_TLS: bool = True
+    # For local development: print codes to console instead of sending emails
+    EMAIL_DEBUG_MODE: bool = True
+
     # JWT
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
     JWT_ALGORITHM: str = "HS256"

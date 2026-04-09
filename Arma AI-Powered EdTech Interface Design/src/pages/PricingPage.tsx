@@ -5,59 +5,61 @@ import { useAuth } from '../contexts/AuthContext';
 import { billingApi } from '../services/api';
 import { toast } from 'sonner';
 import type { PlanTier } from '../types/api';
+import { Header } from '@/components/ui/header';
+import { useTranslation } from '../i18n/I18nContext';
 
 const plans = [
   {
     tier: 'free' as PlanTier,
-    name: 'Free',
+    name: 'pricing.free_name',
     price: '$0',
     period: '',
-    description: 'Get started with AI learning',
+    description: 'pricing.free_desc',
     icon: <Brain className="w-5 h-5" />,
     features: [
-      '3 materials per month',
-      '50 chat messages per month',
-      '100 MB storage',
-      'AI summaries & notes',
-      'Flashcards & quizzes',
+      'pricing.feat_3_materials',
+      'pricing.feat_50_chat',
+      'pricing.feat_100mb',
+      'pricing.feat_summaries',
+      'pricing.feat_flashcards',
     ],
-    limitations: ['No podcast generation', 'No presentations'],
+    limitations: ['pricing.limit_no_podcast', 'pricing.limit_no_presentations'],
   },
   {
     tier: 'student' as PlanTier,
-    name: 'Student',
+    name: 'pricing.student_name',
     price: '$9.99',
     period: '/month',
-    description: 'Perfect for active learners',
+    description: 'pricing.student_desc',
     icon: <Zap className="w-5 h-5" />,
     popular: true,
     features: [
-      '30 materials per month',
-      '500 chat messages per month',
-      '1 GB storage',
-      'AI summaries & notes',
-      'Flashcards & quizzes',
-      '10 podcasts per month',
-      '10 presentations per month',
+      'pricing.feat_30_materials',
+      'pricing.feat_500_chat',
+      'pricing.feat_1gb',
+      'pricing.feat_summaries',
+      'pricing.feat_flashcards',
+      'pricing.feat_10_podcasts',
+      'pricing.feat_10_presentations',
     ],
     limitations: [],
   },
   {
     tier: 'pro' as PlanTier,
-    name: 'Pro',
+    name: 'pricing.pro_name',
     price: '$29.99',
     period: '/month',
-    description: 'Unlimited learning power',
+    description: 'pricing.pro_desc',
     icon: <Crown className="w-5 h-5" />,
     features: [
-      'Unlimited materials',
-      'Unlimited chat messages',
-      '10 GB storage',
-      'AI summaries & notes',
-      'Flashcards & quizzes',
-      'Unlimited podcasts',
-      'Unlimited presentations',
-      'Priority support',
+      'pricing.feat_unlimited_materials',
+      'pricing.feat_unlimited_chat',
+      'pricing.feat_10gb',
+      'pricing.feat_summaries',
+      'pricing.feat_flashcards',
+      'pricing.feat_unlimited_podcasts',
+      'pricing.feat_unlimited_presentations',
+      'pricing.feat_priority_support',
     ],
     limitations: [],
   },
@@ -66,6 +68,7 @@ const plans = [
 export function PricingPage() {
   const navigate = useNavigate();
   const { isAuthenticated, subscription } = useAuth();
+  const { t } = useTranslation();
   const [loadingTier, setLoadingTier] = useState<PlanTier | null>(null);
 
   const currentPlan = subscription?.plan_tier || 'free';
@@ -94,7 +97,7 @@ export function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0C0F] relative overflow-hidden">
+    <div className="min-h-screen bg-[#0C0C0F] relative ">
       {/* Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 blur-[120px] rounded-full opacity-40" />
@@ -102,34 +105,16 @@ export function PricingPage() {
       </div>
 
       {/* Header */}
-      <nav className="relative z-10 px-6 py-6 md:py-8 max-w-7xl mx-auto w-full flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.1] flex items-center justify-center text-primary backdrop-blur-md">
-            <Brain className="w-5 h-5" />
-          </div>
-          <span className="text-xl font-medium tracking-tight text-white/90">arma</span>
-        </div>
-        <div className="flex items-center gap-4">
-          {isAuthenticated ? (
-            <button onClick={() => navigate('/dashboard')} className="text-sm font-medium text-white/80 hover:text-white transition-colors">
-              Dashboard
-            </button>
-          ) : (
-            <button onClick={() => navigate('/login')} className="text-sm font-medium text-white/80 hover:text-white transition-colors">
-              Log in
-            </button>
-          )}
-        </div>
-      </nav>
+      <Header />
 
       {/* Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-8 pb-24">
+      <div className="relative z-10 max-w-6xl px-6 pt-8 pb-24 some-margin-idk-i-fucking-hate-tailwind-ahhhh">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">
-            Choose your plan
+            {t('pricing.title')}
           </h1>
           <p className="text-lg text-white/50 max-w-xl mx-auto">
-            Unlock the full power of AI-assisted learning. Upgrade anytime.
+            {t('pricing.subtitle')}
           </p>
         </div>
 
@@ -149,7 +134,7 @@ export function PricingPage() {
               >
                 {isPopular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-black text-xs font-bold rounded-full uppercase tracking-wider">
-                    Popular
+                    {t('pricing.popular')}
                   </div>
                 )}
 
@@ -157,8 +142,8 @@ export function PricingPage() {
                   {plan.icon}
                 </div>
 
-                <h3 className="text-xl font-medium text-white mb-1">{plan.name}</h3>
-                <p className="text-sm text-white/40 mb-6">{plan.description}</p>
+                <h3 className="text-xl font-medium text-white mb-1">{t(plan.name)}</h3>
+                <p className="text-sm text-white/40 mb-6">{t(plan.description)}</p>
 
                 <div className="mb-8">
                   <span className="text-4xl font-medium text-white">{plan.price}</span>
@@ -169,13 +154,13 @@ export function PricingPage() {
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-sm text-white/70">
                       <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                      {feature}
+                      {t(feature)}
                     </li>
                   ))}
                   {plan.limitations.map((limitation) => (
                     <li key={limitation} className="flex items-start gap-3 text-sm text-white/30 line-through">
                       <Check className="w-4 h-4 text-white/10 mt-0.5 flex-shrink-0" />
-                      {limitation}
+                      {t(limitation)}
                     </li>
                   ))}
                 </ul>
@@ -192,14 +177,14 @@ export function PricingPage() {
                   }`}
                 >
                   {loadingTier === plan.tier ? (
-                    'Redirecting...'
+                    t('pricing.redirecting')
                   ) : isCurrent ? (
-                    'Current Plan'
+                    t('pricing.current_plan')
                   ) : plan.tier === 'free' ? (
-                    'Get Started'
+                    t('pricing.get_started')
                   ) : (
                     <>
-                      Upgrade
+                      {t('pricing.upgrade')}
                       <ChevronRight className="w-4 h-4" />
                     </>
                   )}

@@ -48,7 +48,25 @@ export const LoginPage: React.FC = () => {
       toast.success('Добро пожаловать!');
       navigate('/dashboard');
     } catch (error: any) {
-      const message = error.response?.data?.detail || t('login.error');
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail;
+      const headers = error.response?.headers;
+
+      if (status === 403) {
+        const isReverification = headers?.['x-reverification-required'];
+        if (isReverification) {
+          toast.warning(t('login.reverification_required'));
+          navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&reverify=true`);
+          return;
+        }
+        if (detail?.includes('not verified')) {
+          toast.warning(t('login.email_not_verified'));
+          navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+          return;
+        }
+      }
+
+      const message = detail || t('login.error');
       toast.error(typeof message === 'string' ? message : t('login.error'));
     } finally {
       setIsLoading(false);

@@ -62,7 +62,7 @@ export const RegisterPage: React.FC = () => {
         full_name: formData.full_name,
       });
       toast.success(t('register.success'));
-      navigate('/dashboard');
+      navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
     } catch (error: any) {
       const detail = error.response?.data?.detail;
       const message = Array.isArray(detail)

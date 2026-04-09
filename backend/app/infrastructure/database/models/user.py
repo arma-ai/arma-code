@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, func
+from sqlalchemy import Column, String, DateTime, Boolean, func, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -22,6 +22,13 @@ class User(Base):
 
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
+
+    # Email verification
+    is_email_verified = Column(Boolean, default=False)
+    verification_code = Column(String(6), nullable=True)
+    verification_code_expires_at = Column(DateTime, nullable=True)
+    pending_email = Column(String(255), nullable=True)  # New email awaiting verification
+    last_verified_at = Column(DateTime, nullable=True)  # Last successful verification/login
 
     created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False)

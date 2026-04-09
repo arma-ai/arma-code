@@ -23,7 +23,7 @@ class Project(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # relations
-    owner = relationship("User", backref="projects")
+    owner = relationship("User", backref="projects", passive_deletes=True)
     materials = relationship(
         "Material",
         back_populates="project",

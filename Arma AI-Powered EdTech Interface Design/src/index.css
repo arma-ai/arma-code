@@ -986,6 +986,10 @@
     margin-left: calc(var(--spacing) * 2);
   }
 
+  .some-margin-idk-i-fucking-hate-tailwind-ahhhh{
+    margin-top: 70px;
+  }
+
   .line-clamp-1 {
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;

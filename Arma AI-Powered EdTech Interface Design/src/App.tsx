@@ -21,6 +21,7 @@ import { UpgradeModal } from './components/shared/UpgradeModal';
 import { Toaster } from './components/ui/sonner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { I18nProvider } from './i18n/I18nContext';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { PricingPage } from './pages/PricingPage';
 import { projectsApi } from './services/api';
 import { OnboardingTour } from './components/dashboard/OnboardingTour';
@@ -227,6 +228,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
 
               {/* Protected routes */}
               <Route

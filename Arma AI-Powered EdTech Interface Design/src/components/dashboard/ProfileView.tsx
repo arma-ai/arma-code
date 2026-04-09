@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut, ChevronRight, Zap } from 'lucide-react';
+import { User, LogOut, ChevronRight, Zap, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi, billingApi } from '../../services/api';
@@ -209,36 +209,66 @@ function BillingSettings() {
 }
 
 function AccountSettings() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, requestEmailChange, verifyNewEmail } = useAuth();
   const { t } = useTranslation();
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [saving, setSaving] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  const initials = fullName
-    ? fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
+  // Email change
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailStep, setEmailStep] = useState<'idle' | 'code'>('idle');
+  const [emailChanging, setEmailChanging] = useState(false);
+  const [emailCountdown, setEmailCountdown] = useState(0);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    if (emailCountdown > 0) {
+      const timer = setTimeout(() => setEmailCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailCountdown]);
 
-    if (file.size > 1024 * 1024) {
-      toast.error('File size must be less than 1MB');
+  const handleSendEmailCode = async () => {
+    if (emailCountdown > 0 || emailChanging) return;
+    if (!newEmail || !emailPassword) {
+      toast.error(t('profile.email_and_password_required'));
       return;
     }
+    setEmailChanging(true);
+    try {
+      await requestEmailChange(newEmail, emailPassword);
+      toast.success(t('profile.code_sent'));
+      setEmailStep('code');
+      setEmailCountdown(30);
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('profile.code_send_failed'));
+    } finally {
+      setEmailChanging(false);
+    }
+  };
 
-    if (!file.type.match(/^image\/(jpeg|png|jpg)$/)) {
-      toast.error('Only JPG or PNG files are allowed');
+  const handleVerifyEmailCode = async () => {
+    if (emailCode.length !== 6) {
+      toast.error(t('profile.code_required'));
       return;
     }
-
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setAvatarPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    setEmailChanging(true);
+    try {
+      await verifyNewEmail(emailCode);
+      await refreshUser();
+      setEmail(newEmail);
+      setNewEmail('');
+      setEmailPassword('');
+      setEmailCode('');
+      setEmailStep('idle');
+      toast.success(t('profile.email_changed'));
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('profile.verify_failed'));
+    } finally {
+      setEmailChanging(false);
+    }
   };
 
   const handleSave = async () => {
@@ -264,7 +294,7 @@ function AccountSettings() {
        <div className="p-4 md:p-6 rounded-2xl bg-white/[0.02] border border-white/5">
           <h2 className="text-lg font-medium text-white mb-6">{t('profile.profile_details')}</h2>
 
-          {/* Avatar */}
+          {/* Avatar
           <div className="flex items-center gap-6 mb-8">
              <div className="relative">
                {avatarPreview ? (
@@ -282,7 +312,7 @@ function AccountSettings() {
                 </label>
                 <p className="text-xs text-white/30">{t('profile.avatar_desc')}</p>
              </div>
-          </div>
+          </div> */}
 
           {/* Form */}
           <div className="grid gap-4">
@@ -301,11 +331,88 @@ function AccountSettings() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t('profile.email_placeholder')}
-                  className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
+                  disabled
+                  className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white/60 placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors cursor-not-allowed"
                 />
              </div>
+          </div>
+
+          {/* Email Change Section */}
+          <div className="mt-8 pt-6 border-t border-white/5">
+            <h3 className="text-sm font-medium text-white mb-4">{t('profile.change_email')}</h3>
+
+            {emailStep === 'idle' ? (
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.new_email')}</label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder={t('profile.new_email_placeholder')}
+                    className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.current_password')}</label>
+                  <input
+                    type="password"
+                    value={emailPassword}
+                    onChange={(e) => setEmailPassword(e.target.value)}
+                    placeholder={t('profile.current_password_placeholder')}
+                    className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSendEmailCode}
+                    disabled={emailChanging}
+                    className="px-6 py-2 bg-primary/10 text-primary rounded-xl font-medium hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {emailChanging ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {t('profile.sending_code')}
+                      </>
+                    ) : (
+                      t('profile.send_code')
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.verification_code')}</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder={t('profile.verification_code_placeholder')}
+                    className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors text-center text-lg tracking-widest"
+                  />
+                </div>
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={handleSendEmailCode}
+                    disabled={emailCountdown > 0}
+                    className="text-sm text-primary/60 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {emailCountdown > 0
+                      ? t('profile.resend_countdown', { seconds: emailCountdown })
+                      : t('profile.resend_code')}
+                  </button>
+                  <button
+                    onClick={handleVerifyEmailCode}
+                    disabled={emailChanging}
+                    className="px-6 py-2 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {emailChanging ? t('profile.verifying') : t('profile.verify_email')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex justify-end">
@@ -323,14 +430,57 @@ function AccountSettings() {
 }
 
 function SecuritySettings() {
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [changing, setChanging] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const { user, changePasswordWithCode, requestPasswordChange, requestAccountDeletion, deleteAccount, logout } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  // Delete account state
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteCode, setDeleteCode] = useState('');
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'code'>('idle');
+  const [deleteSending, setDeleteSending] = useState(false);
+  const [deleteChanging, setDeleteChanging] = useState(false);
+  const [deleteCountdown, setDeleteCountdown] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  useEffect(() => {
+    if (deleteCountdown > 0) {
+      const timer = setTimeout(() => setDeleteCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [deleteCountdown]);
+
+  const handleSendCode = async () => {
+    if (sendingCode || countdown > 0) return;
+    setSendingCode(true);
+    try {
+      await requestPasswordChange();
+      toast.success(t('profile.code_sent'));
+      setCodeSent(true);
+      setCountdown(30);
+    } catch {
+      toast.error(t('profile.code_send_failed'));
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword || !verificationCode) {
       toast.error(t('profile.all_fields_required'));
       return;
     }
@@ -342,17 +492,19 @@ function SecuritySettings() {
       toast.error(t('profile.password_min_length'));
       return;
     }
+    if (verificationCode.length !== 6) {
+      toast.error(t('profile.code_required'));
+      return;
+    }
 
     setChanging(true);
     try {
-      await authApi.changePassword({
-        current_password: currentPassword,
-        new_password: newPassword,
-      });
+      await changePasswordWithCode(newPassword, verificationCode);
       toast.success(t('profile.password_changed'));
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setVerificationCode('');
+      setCodeSent(false);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       const message = Array.isArray(detail)
@@ -366,52 +518,203 @@ function SecuritySettings() {
     }
   };
 
+  const handleSendDeleteCode = async () => {
+    if (deleteSending || deleteCountdown > 0) return;
+    setDeleteSending(true);
+    try {
+      await requestAccountDeletion();
+      toast.success(t('profile.code_sent'));
+      setDeleteStep('code');
+      setDeleteCountdown(30);
+    } catch {
+      toast.error(t('profile.code_send_failed'));
+    } finally {
+      setDeleteSending(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword || !deleteCode) {
+      toast.error(t('profile.all_fields_required'));
+      return;
+    }
+    if (deleteCode.length !== 6) {
+      toast.error(t('profile.code_required'));
+      return;
+    }
+    setDeleteChanging(true);
+    try {
+      await deleteAccount(deletePassword, deleteCode);
+      toast.success(t('profile.account_deleted'));
+      logout();
+      navigate('/');
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      const message = Array.isArray(detail)
+        ? detail.map((e: any) => e.msg).join(', ')
+        : typeof detail === 'string'
+          ? detail
+          : t('profile.delete_failed');
+      toast.error(message);
+    } finally {
+      setDeleteChanging(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Change Password */}
       <div className="p-4 md:p-6 rounded-2xl bg-white/[0.02] border border-white/5">
-        <h2 className="text-lg font-medium text-white mb-6">{t('profile.change_password')}</h2>
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.current_password')}</label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder={t('profile.current_password_placeholder')}
-              className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
-            />
+        <h2 className="text-lg font-medium text-white mb-2">{t('profile.change_password')}</h2>
+        <p className="text-sm text-white/40 mb-6">{t('profile.change_password_desc')}</p>
+
+        {!codeSent ? (
+          <button
+            onClick={handleSendCode}
+            disabled={sendingCode}
+            className="px-6 py-2 bg-primary/10 text-primary rounded-xl font-medium hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {sendingCode ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t('profile.sending_code')}
+              </>
+            ) : (
+              t('profile.send_code')
+            )}
+          </button>
+        ) : (
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.verification_code')}</label>
+              <input
+                type="text"
+                maxLength={6}
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                placeholder={t('profile.verification_code_placeholder')}
+                className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors text-center text-lg tracking-widest"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.new_password')}</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t('profile.new_password_placeholder')}
+                className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.confirm_new_password')}</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t('profile.confirm_new_password_placeholder')}
+                className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.new_password')}</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder={t('profile.new_password_placeholder')}
-              className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.confirm_new_password')}</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder={t('profile.confirm_new_password_placeholder')}
-              className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
-            />
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end">
+        )}
+
+        <div className="mt-6 flex justify-between items-center">
+          {codeSent && (
+            <button
+              onClick={handleSendCode}
+              disabled={countdown > 0}
+              className="text-sm text-primary/60 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {countdown > 0
+                ? t('profile.resend_countdown', { seconds: countdown })
+                : t('profile.resend_code')}
+            </button>
+          )}
           <button
             onClick={handleChangePassword}
-            disabled={changing}
-            className="px-6 py-2 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={changing || !codeSent}
+            className="px-6 py-2 bg-primary text-black rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
           >
             {changing ? t('profile.changing_password') : t('profile.change_password_btn')}
           </button>
         </div>
+      </div>
+
+      {/* Danger Zone - Delete Account */}
+      <div className="p-4 md:p-6 rounded-2xl bg-red-500/[0.03] border border-red-500/10">
+        <h2 className="text-lg font-medium text-red-400 mb-2">{t('profile.danger_zone')}</h2>
+        <p className="text-sm text-white/40 mb-6">{t('profile.delete_account_desc')}</p>
+
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-6 py-2 bg-red-500/10 text-red-400 rounded-xl font-medium hover:bg-red-500/20 transition-colors border border-red-500/20"
+          >
+            {t('profile.delete_account_btn')}
+          </button>
+        ) : deleteStep === 'idle' ? (
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.current_password')}</label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder={t('profile.current_password_placeholder')}
+                className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-red-500/50 outline-none transition-colors"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleSendDeleteCode}
+                disabled={deleteSending}
+                className="px-6 py-2 bg-red-500/10 text-red-400 rounded-xl font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-red-500/20"
+              >
+                {deleteSending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t('profile.sending_code')}
+                  </>
+                ) : (
+                  t('profile.send_code')
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <label className="text-xs text-white/40 uppercase tracking-wider">{t('profile.verification_code')}</label>
+              <input
+                type="text"
+                maxLength={6}
+                value={deleteCode}
+                onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, ''))}
+                placeholder={t('profile.verification_code_placeholder')}
+                className="w-full bg-[#0A0A0C] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/20 focus:border-red-500/50 outline-none transition-colors text-center text-lg tracking-widest"
+              />
+            </div>
+            <div className="flex justify-between items-center">
+              <button
+                onClick={handleSendDeleteCode}
+                disabled={deleteCountdown > 0}
+                className="text-sm text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {deleteCountdown > 0
+                  ? t('profile.resend_countdown', { seconds: deleteCountdown })
+                  : t('profile.resend_code')}
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteChanging}
+                className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-500/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteChanging ? t('profile.deleting') : t('profile.delete_account_confirm_btn')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

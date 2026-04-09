@@ -8,7 +8,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   subscription: Subscription | null;
   login: (credentials: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<any>;
+  verifyEmail: (email: string, code: string) => Promise<any>;
+  resendCode: (email: string) => Promise<any>;
+  requestPasswordChange: () => Promise<any>;
+  requestEmailChange: (newEmail: string, currentPassword: string) => Promise<any>;
+  verifyNewEmail: (code: string) => Promise<User>;
+  changePasswordWithCode: (newPassword: string, code: string) => Promise<any>;
+  requestAccountDeletion: () => Promise<any>;
+  deleteAccount: (currentPassword: string, code: string) => Promise<any>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -69,12 +77,80 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (data: RegisterRequest) => {
     try {
       const response = await authApi.register(data);
-      setAuthToken(response.access_token);
+      // No token returned — user needs to verify email first
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
 
-      // Get user data
+  const verifyEmail = async (email: string, code: string) => {
+    try {
+      const response = await authApi.verifyEmail({ email, code });
+      setAuthToken(response.access_token);
       const userData = await authApi.getMe();
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const resendCode = async (email: string) => {
+    try {
+      return await authApi.resendCode(email);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const requestPasswordChange = async () => {
+    try {
+      return await authApi.requestPasswordChange();
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const requestEmailChange = async (newEmail: string, currentPassword: string) => {
+    try {
+      return await authApi.requestEmailChange(newEmail, currentPassword);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const verifyNewEmail = async (code: string) => {
+    try {
+      const userData = await authApi.verifyNewEmail(code);
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      return userData;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const changePasswordWithCode = async (newPassword: string, code: string) => {
+    try {
+      return await authApi.changePasswordWithCode(newPassword, code);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const requestAccountDeletion = async () => {
+    try {
+      return await authApi.requestAccountDeletion();
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const deleteAccount = async (currentPassword: string, code: string) => {
+    try {
+      return await authApi.deleteAccount(currentPassword, code);
     } catch (error) {
       throw error;
     }
@@ -114,6 +190,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     subscription,
     login,
     register,
+    verifyEmail,
+    resendCode,
+    requestPasswordChange,
+    requestEmailChange,
+    verifyNewEmail,
+    changePasswordWithCode,
+    requestAccountDeletion,
+    deleteAccount,
     logout,
     refreshUser,
     refreshSubscription,
