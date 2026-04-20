@@ -46,8 +46,9 @@ export function ProjectCard({ id, name, materialCount, createdAt, onClick, onDel
       setIsDeleting(true);
       await projectsApi.delete(id);
       toast.success('Project deleted successfully');
+      window.dispatchEvent(new CustomEvent('project-deleted', { detail: { projectId: id } }));
       onDelete?.();
-      onRefresh?.(); // Refresh parent list
+      onRefresh?.();
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Failed to delete project');
     } finally {

@@ -40,6 +40,7 @@ def create_application() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Reverification-Required", "X-Verification-Required"],
     )
     # Structured request logging (reads request_id set by CorrelationID)
     app.add_middleware(StructuredLoggingMiddleware)

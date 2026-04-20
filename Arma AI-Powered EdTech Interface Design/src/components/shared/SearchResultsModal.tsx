@@ -82,20 +82,13 @@ export function SearchResultsModal({
   };
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[99998]"
-        onClick={onClose}
-      />
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       {/* Modal Container */}
-      <div className="fixed inset-0 flex items-center justify-center p-2 md:p-4 z-[99999] pointer-events-none">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-full md:max-w-3xl max-h-[90vh] md:max-h-[80vh] bg-[#0D0D0F] border border-white/10 rounded-xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden pointer-events-auto"
+          className="relative w-full max-w-full md:max-w-3xl max-h-[90vh] md:max-h-[80vh] bg-[#0D0D0F] border border-white/10 rounded-xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-3 md:p-4 border-b border-white/10 bg-[#0D0D0F] shrink-0">
@@ -284,7 +277,6 @@ export function SearchResultsModal({
             </div>
           )}
         </motion.div>
-      </div>
-    </>
+    </div>
   );
 }

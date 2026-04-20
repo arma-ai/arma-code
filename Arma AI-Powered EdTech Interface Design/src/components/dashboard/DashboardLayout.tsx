@@ -264,7 +264,7 @@ export function DashboardLayout({ children, currentView, onNavigate, onUpload, o
            <div className="absolute inset-0 pointer-events-none rounded-none md:rounded-[32px] ring-0 md:ring-1 ring-inset ring-white/[0.05] hidden md:block" />
            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 z-20 pointer-events-none hidden md:block" />
            
-           <div id="ContentScroll" className="flex-1 overflow-y-auto relative scrollbar-hide clip-content">
+           <div id="ContentScroll" className="flex-1 overflow-y-auto relative scrollbar-hide clip-content bg-[#0C0C0F]">
               {children}
            </div>
         </main>

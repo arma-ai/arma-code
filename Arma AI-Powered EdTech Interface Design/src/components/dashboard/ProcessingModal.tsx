@@ -135,15 +135,19 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({
                   {/* Progress Bar */}
                   {!isError && (
                     <div className="mb-6">
-                      <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-                        <motion.div
-                          animate={{ width: `${displayProgress}%` }}
-                          transition={{ duration: 0.3, ease: 'easeOut' }}
-                          className={`h-full rounded-full ${
-                            isComplete
-                              ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                              : 'bg-gradient-to-r from-[#FF8A3D] to-[#F59E0B]'
-                          }`}
+                      <div
+                        className="h-1.5 rounded-full overflow-hidden"
+                        style={{ background: 'rgba(255,255,255,0.08)' }}
+                      >
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${displayProgress}%`,
+                            background: isComplete
+                              ? 'linear-gradient(to right, #10b981, #34d399)'
+                              : 'linear-gradient(to right, #FF8A3D, #F59E0B)',
+                            transition: 'width 0.3s ease-out',
+                          }}
                         />
                       </div>
                       <div className="flex justify-between items-center mt-2.5">
@@ -219,4 +223,3 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({
     </AnimatePresence>
   );
 };
-

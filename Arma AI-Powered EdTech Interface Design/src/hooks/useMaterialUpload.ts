@@ -46,19 +46,18 @@ export function useProcessingStatus(materialId: string | null, pollInterval?: nu
     // Initial fetch
     fetchStatus();
 
-    // Poll if not completed or failed
-    const interval = pollInterval || 2000; // Default 2 seconds
-    const poller = setInterval(() => {
-      const isStillProcessing = status && 
-        (status.status.toLowerCase() === 'processing' || status.status.toLowerCase() === 'queued');
-      
-      if (isStillProcessing) {
-        fetchStatus();
+    // Poll until completed or failed
+    const interval = pollInterval || 2000;
+    const poller = setInterval(async () => {
+      if (status?.status === 'completed' || status?.status === 'failed') {
+        clearInterval(poller);
+        return;
       }
+      fetchStatus();
     }, interval);
 
     return () => clearInterval(poller);
-  }, [materialId, pollInterval, status?.status, fetchStatus]);
+  }, [materialId, pollInterval, fetchStatus, status?.status]);
 
   return {
     status,
@@ -69,6 +68,40 @@ export function useProcessingStatus(materialId: string | null, pollInterval?: nu
     isFailed: status?.status === 'failed',
     isProcessing: status?.status === 'processing' || status?.status === 'queued',
   };
+}
+
+/**
+ * Hook that polls ALL materials in a batch and resolves when every one is done
+ */
+export function useAllMaterialsProcessingStatus(materialIds: string[], pollInterval = 3000) {
+  const [statuses, setStatuses] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!materialIds.length) return;
+
+    const fetchAll = async () => {
+      const results = await Promise.allSettled(
+        materialIds.map(id => materialsApi.getProcessingStatus(id))
+      );
+      setStatuses(prev => {
+        const next = { ...prev };
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') next[materialIds[i]] = r.value.status;
+        });
+        return next;
+      });
+    };
+
+    fetchAll();
+    const poller = setInterval(fetchAll, pollInterval);
+    return () => clearInterval(poller);
+  }, [materialIds.join(','), pollInterval]);
+
+  const statusList = materialIds.map(id => statuses[id]);
+  const isAllComplete = materialIds.length > 0 && statusList.every(s => s === 'completed');
+  const isAnyFailed = statusList.some(s => s === 'failed');
+
+  return { isAllComplete, isAnyFailed, statuses };
 }
 
 /**

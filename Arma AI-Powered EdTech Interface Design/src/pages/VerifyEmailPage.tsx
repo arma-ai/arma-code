@@ -98,11 +98,7 @@ export const VerifyEmailPage: React.FC = () => {
     try {
       await verifyEmail(email, verificationCode);
       toast.success(t('verify.success'));
-      if (isReverify) {
-        navigate('/login');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate('/dashboard');
     } catch (error: any) {
       const detail = error.response?.data?.detail || t('verify.error');
       toast.error(typeof detail === 'string' ? detail : t('verify.error'));

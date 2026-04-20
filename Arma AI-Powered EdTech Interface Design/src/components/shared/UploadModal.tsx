@@ -35,7 +35,7 @@ export function UploadModal({ onClose, projectId, onSuccess }: UploadModalProps)
   const [linkInput, setLinkInput] = useState('');
   const [materials, setMaterials] = useState<FileObject[]>([]);
   const { uploadBatch, uploading } = useBatchUpload();
-  
+
   // Processing modal state
   const [uploadedMaterialId, setUploadedMaterialId] = useState<string | null>(null);
   const {
@@ -270,13 +270,13 @@ export function UploadModal({ onClose, projectId, onSuccess }: UploadModalProps)
 
                       {materials.length < MAX_FILES && <FileInput onAdd={addMaterials} />}
                     </div>
-                    
+
                     <button
                       onClick={handleUpload}
                       disabled={uploading || totalItems === 0}
                       className="flex h-12 w-full items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-black transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      
+
                       {actionLabel}
                     </button>
                   </div>

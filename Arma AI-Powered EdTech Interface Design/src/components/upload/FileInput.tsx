@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, X } from "lucide-react";
+import { FileText, Plus, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTranslation } from '../../i18n/I18nContext';
 import { toast } from "sonner";
@@ -9,9 +9,11 @@ interface FileInputProps {
   file?: File;
   onAdd?: (files: File[]) => void;
   onDelete?: () => void;
+  compact?: boolean;
+  className?: string;
 }
 
-function FileInput({ file, onAdd, onDelete }: FileInputProps) {
+function FileInput({ file, onAdd, onDelete, compact, className }: FileInputProps) {
   const { t } = useTranslation();
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +82,35 @@ function FileInput({ file, onAdd, onDelete }: FileInputProps) {
     }
     e.target.value = "";
   };
+
+  if (compact) {
+    return (
+      <div
+        className={`border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors ${className ?? ''} ${
+          dragActive
+            ? "border-primary bg-primary/5 text-primary"
+            : "border-white/10 hover:border-white/20 hover:bg-white/5 text-white/40 hover:text-white/70"
+        }`}
+        style={{ minHeight: '56px' }}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.doc,.txt"
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <Plus size={15} />
+        <span className="text-xs font-medium">{t('upload.add_more')}</span>
+      </div>
+    );
+  }
 
   return (
     <div

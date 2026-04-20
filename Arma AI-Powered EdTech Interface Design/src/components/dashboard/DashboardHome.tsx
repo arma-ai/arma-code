@@ -99,6 +99,17 @@ export function DashboardHome({ onMaterialClick, onUpload, onProjectClick, onSea
     refetchProjects();
   };
 
+  // Sync project list with global create/delete events
+  useEffect(() => {
+    const handler = () => refetchProjects();
+    window.addEventListener('project-created', handler);
+    window.addEventListener('project-deleted', handler);
+    return () => {
+      window.removeEventListener('project-created', handler);
+      window.removeEventListener('project-deleted', handler);
+    };
+  }, [refetchProjects]);
+
   // Rotate suggestions every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {

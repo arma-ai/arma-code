@@ -53,13 +53,18 @@ export const LoginPage: React.FC = () => {
       const headers = error.response?.headers;
 
       if (status === 403) {
-        const isReverification = headers?.['x-reverification-required'];
+        const isReverification =
+          headers?.['x-reverification-required'] ||
+          detail?.toLowerCase().includes('re-verification');
         if (isReverification) {
           toast.warning(t('login.reverification_required'));
           navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&reverify=true`);
           return;
         }
-        if (detail?.includes('not verified')) {
+        const isUnverified =
+          headers?.['x-verification-required'] ||
+          detail?.toLowerCase().includes('not verified');
+        if (isUnverified) {
           toast.warning(t('login.email_not_verified'));
           navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
           return;

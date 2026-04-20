@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Youtube, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, Folder, BookOpen, BrainCircuit, ClipboardList, Trash2, MessageSquare, Plus, Lock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, FileText, Youtube, Link as LinkIcon, Loader2, CheckCircle, AlertCircle, Folder, BookOpen, BrainCircuit, ClipboardList, Trash2, MessageSquare, Plus, Lock, CheckCircle2, Headphones, MonitorPlay } from 'lucide-react';
 import { motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useProject, useProjectContent, useMaterialContent, useTutorChat } from '../hooks/useApi';
+import { useProject, useProjectContent, useMaterialContent, useMaterial, useTutorChat } from '../hooks/useApi';
 import { useProjectProgress } from '../hooks/useProjectProgress';
 import { useTranslation } from '../i18n/I18nContext';
 import { toast } from 'sonner';
@@ -12,6 +12,8 @@ import { projectsApi, materialsApi } from '../services/api';
 import { FlashcardsTab } from '../components/dashboard/tabs/FlashcardsTab';
 import { QuizTab } from '../components/dashboard/tabs/QuizTab';
 import { ChatTab } from '../components/dashboard/tabs/ChatTab';
+import { PodcastTab } from '../components/dashboard/tabs/PodcastTab';
+import { SlidesTab } from '../components/dashboard/tabs/SlidesTab';
 import { ProcessingModal, ProgressiveReveal, OnboardingTour, DashboardHero } from '../components/dashboard';
 import { useMaterialUpload } from '../hooks/useMaterialUpload';
 
@@ -22,11 +24,12 @@ export function ProjectDetailView() {
   const { content, loading: contentLoading } = useProjectContent(projectId || null);
   const { progress, markSummaryRead, markFlashcardsComplete } = useProjectProgress(projectId || null);
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'chat' | 'materials' | 'summary' | 'flashcards' | 'quiz'>('materials');
+  const [activeTab, setActiveTab] = useState<'chat' | 'materials' | 'summary' | 'flashcards' | 'quiz' | 'podcast' | 'slides'>('materials');
   const [showCelebration, setShowCelebration] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'single'>('all');
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
   const { content: materialContent, loading: materialLoading } = useMaterialContent(selectedMaterialId);
+  const { material: selectedMaterial, refetch: refetchSelectedMaterial } = useMaterial(selectedMaterialId);
   const { messages: tutorMessages, sendMessage, sending, loading: chatLoading, isTyping } = useTutorChat(
     viewMode === 'single' ? selectedMaterialId : null,
     viewMode === 'all' ? projectId : null
@@ -230,51 +233,44 @@ export function ProjectDetailView() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-5 h-5 text-white/60" />
-              </button>
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <Folder className="w-5 h-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="truncate text-lg font-semibold text-white md:text-xl">{project?.name || 'Loading...'}</h1>
-                  <p className="text-sm text-white/40">
-                    {project?.materials.length || 0} {project?.materials.length === 1 ? t('project.material_count') : t('project.materials_count')}
-                  </p>
+    <div className="bg-background">
+      {/* Header + Tabs (sticky together) */}
+      <div className="sticky top-0 z-20 bg-[#0C0C0F]">
+        <div className="border-b border-white/10">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="p-2 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-5 h-5 text-white/60" />
+                </button>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                    <Folder className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="truncate text-lg font-semibold text-white md:text-xl">{project?.name || 'Loading...'}</h1>
+                    <p className="text-sm text-white/40">
+                      {project?.materials.length || 0} {project?.materials.length === 1 ? t('project.material_count') : t('project.materials_count')}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleUploadPDF}
-                disabled={uploading}
-                className="flex items-center gap-2 px-4 py-2 bg-[#FF8A3D] text-white rounded-lg hover:bg-[#FF8A3D]/90 transition-colors text-sm font-medium disabled:opacity-50 cursor-pointer"
-              >
-                <Plus size={16} />
-                <span className="hidden sm:inline">{t('project.add_material')}</span>
-              </button>
-              <button
-                onClick={handleDeleteProject}
-                disabled={isDeleting || !project}
-                className="flex w-auto items-center justify-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50 cursor-pointer"
-              >
-                {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                <span className="hidden sm:inline text-sm font-medium">{t('project.delete_project')}</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleDeleteProject}
+                  disabled={isDeleting || !project}
+                  className="flex w-auto items-center justify-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  <span className="hidden sm:inline text-sm font-medium">{t('project.delete_project')}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* Tabs */}
       <div className="border-b border-white/10">
@@ -359,10 +355,33 @@ export function ProjectDetailView() {
                 <span className="text-[10px] text-white/20 ml-1">({t('project.complete_flashcards_first')})</span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('podcast')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                activeTab === 'podcast'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <Headphones size={16} />
+              {t('project.tabs.podcast')}
+            </button>
+            <button
+              onClick={() => setActiveTab('slides')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                activeTab === 'slides'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-white/40 hover:text-white/60'
+              }`}
+            >
+              <MonitorPlay size={16} />
+              {t('project.tabs.slides')}
+            </button>
 
-            
+
           </div>
         </div>
+      </div>
       </div>
 
       {/* Content */}
@@ -402,8 +421,7 @@ export function ProjectDetailView() {
                       staggerDelay={index * 100}
                     >
                       <div
-                        onClick={() => navigate(`/dashboard/materials/${material.id}`)}
-                        className="group cursor-pointer p-5 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-primary/20 transition-all"
+                        className="group p-5 rounded-2xl border border-white/10 bg-white/[0.02] transition-all"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getMaterialColor(material.type)}`}>
@@ -848,6 +866,7 @@ export function ProjectDetailView() {
                     flashcards={content.flashcards}
                     loading={contentLoading}
                     viewMode="all"
+                    onGoToQuiz={() => setActiveTab('quiz')}
                     onComplete={async () => {
                       try {
                         await markFlashcardsComplete();
@@ -872,6 +891,7 @@ export function ProjectDetailView() {
                           flashcards={materialContent.flashcards}
                           loading={false}
                           viewMode="single"
+                          onGoToQuiz={() => setActiveTab('quiz')}
                           onComplete={async () => {
                             try {
                               await markFlashcardsComplete();
@@ -925,6 +945,8 @@ export function ProjectDetailView() {
                           questions={materialContent.quiz}
                           loading={false}
                           viewMode="single"
+                          onGoToPodcast={() => setActiveTab('podcast')}
+                          onGoToSlides={() => setActiveTab('slides')}
                         />
                       );
                     })()
@@ -955,11 +977,101 @@ export function ProjectDetailView() {
                     questions={content.quiz || []}
                     loading={contentLoading}
                     viewMode="all"
+                    onGoToPodcast={() => setActiveTab('podcast')}
+                    onGoToSlides={() => setActiveTab('slides')}
                   />
                 ) : (
                   <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
                     <ClipboardList className="w-12 h-12 text-white/20 mx-auto mb-4" />
                     <p className="text-white/40">{t('project.quiz_generating')}</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'podcast' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {viewMode === 'single' && selectedMaterialId ? (
+                  selectedMaterial
+                    ? <PodcastTab material={selectedMaterial as any} onRefetch={refetchSelectedMaterial} />
+                    : <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Headphones className="w-5 h-5 text-primary" />
+                      <h3 className="text-base font-semibold text-white">{t('project.podcast_select_material')}</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {project?.materials.map((mat) => (
+                        <button
+                          key={mat.id}
+                          onClick={() => { setSelectedMaterialId(mat.id); setViewMode('single'); }}
+                          className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-primary/30 transition-all text-left group"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                            {(mat as any).podcast_audio_url ? (
+                              <Headphones size={18} className="text-primary" />
+                            ) : (
+                              <Headphones size={18} className="text-white/30" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-white truncate">{mat.title}</div>
+                            <div className="text-xs text-white/40 mt-0.5">
+                              {(mat as any).podcast_audio_url ? t('project.tabs.podcast') : t('quiz.go_to_podcast')}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'slides' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {viewMode === 'single' && selectedMaterialId ? (
+                  selectedMaterial
+                    ? <SlidesTab material={selectedMaterial as any} onRefetch={refetchSelectedMaterial} />
+                    : <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <MonitorPlay className="w-5 h-5 text-primary" />
+                      <h3 className="text-base font-semibold text-white">{t('project.slides_select_material')}</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {project?.materials.map((mat) => (
+                        <button
+                          key={mat.id}
+                          onClick={() => { setSelectedMaterialId(mat.id); setViewMode('single'); }}
+                          className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-primary/30 transition-all text-left group"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                            {(mat as any).presentation_status === 'completed' ? (
+                              <MonitorPlay size={18} className="text-primary" />
+                            ) : (
+                              <MonitorPlay size={18} className="text-white/30" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-white truncate">{mat.title}</div>
+                            <div className="text-xs text-white/40 mt-0.5">
+                              {(mat as any).presentation_status === 'completed' ? t('project.tabs.slides') : t('quiz.go_to_slides')}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </motion.div>

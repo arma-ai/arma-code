@@ -63,14 +63,16 @@ export function useFakeProgress({
 
     const interval = setInterval(() => {
       setDisplayProgress(prev => {
-        // Cap at 95% until real completion
-        if (prev >= 95 && realProgress < 100) return prev;
-        
-        // Random step for natural feel (0.3-1%)
-        const step = Math.random() * 0.7 + 0.3;
-        return Math.min(prev + step, 95);
+        // Always use whichever is higher: backend real progress or fake
+        const base = Math.max(prev, realProgress);
+        if (base >= 95) return 95;
+
+        // Ease-out curve: fast start, slows near 95%
+        const remaining = 95 - base;
+        const step = Math.max(0.3, remaining * 0.05) + Math.random() * 0.5;
+        return Math.min(base + step, 95);
       });
-    }, 200); // Update every 200ms
+    }, 150);
 
     return () => clearInterval(interval);
   }, [realProgress, isComplete]);

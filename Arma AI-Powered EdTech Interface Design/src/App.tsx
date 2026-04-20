@@ -23,7 +23,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { I18nProvider } from './i18n/I18nContext';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { PricingPage } from './pages/PricingPage';
-import { projectsApi } from './services/api';
+import { projectsApi, searchApi, materialsApi } from './services/api';
+import { toast } from 'sonner';
 import { OnboardingTour } from './components/dashboard/OnboardingTour';
 
 export type ViewState = 'dashboard' | 'activity' | 'library' | 'flashcards' | 'languages' | 'profile' | 'materials';

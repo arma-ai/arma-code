@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "EduPlatform API"
     APP_ENV: str = "development"
-    DEBUG: bool = True
+    DEBUG: bool = False
     SECRET_KEY: str = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
 
     # Database
@@ -104,7 +104,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "Arma EdTech"
     SMTP_USE_TLS: bool = True
     # For local development: print codes to console instead of sending emails
-    EMAIL_DEBUG_MODE: bool = True
+    EMAIL_DEBUG_MODE: bool = False
 
     # JWT
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))

@@ -231,7 +231,8 @@ async def verify_email(
             detail="User not found"
         )
 
-    if user.is_email_verified:
+    # Block only if already verified with no pending code (not a re-verification attempt)
+    if user.is_email_verified and not user.verification_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already verified"
@@ -251,7 +252,7 @@ async def verify_email(
             detail="Verification code has expired. Please request a new one."
         )
 
-    # Mark as verified
+    # Mark as verified and update re-verification timestamp
     user.is_email_verified = True
     user.verification_code = None
     user.verification_code_expires_at = None
